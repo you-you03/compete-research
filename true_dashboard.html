@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<title>競合リサーチ ダッシュボード</title>
+<style>
+  :root {
+    --bg: #f5f4f0;
+    --bg-card: #fbfaf6;
+    --ink: #14171c;
+    --ink-2: #3d434c;
+    --ink-3: #6b6f76;
+    --ink-4: #9aa0a8;
+    --rule: #e6e2d6;
+    --rule-strong: #d6d1c0;
+
+    /* accents — used sparingly: borders, dots, small fills */
+    --c-hero:    #0f172a;
+    --c-scale:   #c2410c;   /* burnt orange */
+    --c-service: #0369a1;   /* deep sky */
+    --c-biz:     #b91c1c;   /* coral red */
+    --c-diff:    #047857;   /* emerald */
+    --c-rep-pos: #047857;
+    --c-rep-neg: #b91c1c;
+    --c-mkt:     #6d28d9;   /* violet */
+    --c-hire:    #4d7c0f;   /* lime */
+    --c-news:    #1e293b;
+    --c-self:    #b45309;   /* amber for self */
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    min-height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body { display: flex; min-height: 100vh; }
+
+  /* ============ Sidebar ============ */
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    background: var(--bg-card);
+    color: var(--ink-2);
+    padding: 28px 16px;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--rule);
+  }
+  .sb-eyebrow {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.22em;
+    color: var(--ink-3);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    padding: 0 12px;
+  }
+  .sb-title {
+    font-size: 21px;
+    font-weight: 800;
+    color: var(--ink);
+    margin-bottom: 28px;
+    line-height: 1.35;
+    padding: 0 12px;
+    letter-spacing: -0.01em;
+  }
+  .sb-section {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--ink-3);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    padding: 0 12px;
+    margin: 8px 0 10px;
+  }
+  .company-list { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+  .company-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.14s ease;
+    color: var(--ink-2);
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .company-item:hover { background: rgba(0,0,0,0.04); color: var(--ink); }
+  .company-item.active {
+    background: var(--bg);
+    color: var(--ink);
+    font-weight: 700;
+  }
+  .company-item.active .ci-marker { background: var(--c-scale); }
+  .ci-marker {
+    width: 4px;
+    height: 20px;
+    border-radius: 2px;
+    background: var(--rule-strong);
+    flex-shrink: 0;
+  }
+  .ci-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ci-prio {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 4px;
+    letter-spacing: 0.06em;
+    flex-shrink: 0;
+    border: 1px solid currentColor;
+    background: transparent;
+  }
+  .ci-prio.self { color: var(--c-scale); }
+  .ci-prio.high { color: var(--c-biz); }
+  .ci-prio.medium { color: var(--c-service); }
+  .ci-prio.low { color: var(--ink-4); }
+
+  .sb-footer {
+    margin-top: auto;
+    padding: 12px;
+    font-size: 12px;
+    color: var(--ink-3);
+    border-top: 1px solid var(--rule);
+    padding-top: 16px;
+    line-height: 1.6;
+  }
+
+  /* ============ Main ============ */
+  .main {
+    flex: 1;
+    padding: 28px 36px 80px;
+    overflow-x: hidden;
+    max-width: 1280px;
+  }
+  .topbar {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    gap: 16px;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 14px;
+  }
+  .crumb {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .timestamp {
+    font-size: 13px;
+    color: var(--ink-4);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.05em;
+  }
+
+  /* ====== Tile system ====== */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 16px;
+  }
+  .span-2 { grid-column: span 2; }
+  .span-3 { grid-column: span 3; }
+  .span-4 { grid-column: span 4; }
+  .span-6 { grid-column: span 6; }
+
+  .tile {
+    background: var(--bg-card);
+    border: 1px solid var(--rule);
+    border-radius: 18px;
+    padding: 22px 24px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  /* Accent strip on the LEFT for each tile, swappable per type */
+  .tile.accent::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 22px; bottom: 22px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--accent, var(--ink));
+  }
+
+  .tile-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent, var(--ink-3));
+    margin-bottom: 10px;
+  }
+  .tile-eyebrow .num {
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-4);
+    font-weight: 700;
+  }
+  .tile-title {
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin-bottom: 14px;
+  }
+
+  .lede {
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--ink-2);
+    text-wrap: pretty;
+  }
+
+  /* ===== HERO (light, cream-base) ===== */
+  .hero {
+    grid-column: span 6;
+    background: var(--bg-card);
+    color: var(--ink);
+    border-radius: 22px;
+    padding: 36px 40px;
+    border: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 40px;
+    align-items: stretch;
+    position: relative;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 36px; bottom: 36px;
+    width: 4px;
+    border-radius: 0 4px 4px 0;
+    background: var(--c-scale);
+  }
+  .hero-left { display: flex; flex-direction: column; justify-content: space-between; gap: 28px; min-width: 0; }
+  .hero-eyebrow {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .hero-eyebrow .priority-pill {
+    border: 1px solid var(--c-scale);
+    color: var(--c-scale);
+    padding: 3px 9px;
+    border-radius: 4px;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    font-weight: 800;
+  }
+  .hero-name {
+    font-size: 40px;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin-top: 12px;
+    margin-bottom: 14px;
+    color: var(--ink);
+  }
+  .hero-url {
+    font-size: 14px;
+    color: var(--c-service);
+    text-decoration: none;
+    font-family: 'SF Mono', ui-monospace, monospace;
+    border-bottom: 1px dotted var(--c-service);
+    padding-bottom: 1px;
+    align-self: flex-start;
+    word-break: break-all;
+  }
+  .hero-url:hover { color: var(--ink); border-color: var(--ink); }
+
+  .hero-quote {
+    font-style: italic;
+    font-family: 'Georgia', 'Hiragino Mincho ProN', serif;
+    font-size: 30px;
+    font-weight: 500;
+    line-height: 1.45;
+    color: var(--ink);
+    border-left: 4px solid var(--c-scale);
+    padding: 6px 0 6px 22px;
+    letter-spacing: -0.01em;
+  }
+  .hero-quote::before { content: '“'; color: var(--c-scale); margin-right: 2px; }
+  .hero-quote::after  { content: '”'; color: var(--c-scale); margin-left: 2px; }
+  .hero-quote-cap {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 8px;
+    font-style: normal;
+    font-family: -apple-system, sans-serif;
+  }
+
+  .hero-right { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+  .hero-summary-cap {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 4px;
+  }
+  .hero-summary {
+    font-size: 15.5px;
+    line-height: 1.8;
+    color: var(--ink-2);
+    text-wrap: pretty;
+  }
+  .hero-summary mark {
+    background: transparent;
+    color: var(--ink);
+    font-weight: 800;
+    box-shadow: inset 0 -8px 0 rgba(194,65,12,0.12);
+    padding: 0 2px;
+  }
+
+  /* ===== Scale: 3 huge numbers on cream ===== */
+  .scale.tile { --accent: var(--c-scale); }
+  .scale-stack { display: flex; flex-direction: column; gap: 20px; }
+  .scale-stat {
+    padding-bottom: 20px;
+    border-bottom: 1px dashed var(--rule-strong);
+  }
+  .scale-stat:last-child { border-bottom: none; padding-bottom: 0; }
+  .scale-num {
+    font-size: 3.2rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    color: var(--c-scale);
+    font-variant-numeric: tabular-nums;
+  }
+  .scale-num small {
+    font-size: 15px;
+    color: var(--ink-3);
+    font-weight: 700;
+    margin-left: 4px;
+    letter-spacing: 0;
+  }
+  .scale-label {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--ink-3);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .scale-note {
+    font-size: 13px;
+    color: var(--ink-3);
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+  .stat-empty { color: var(--ink-4); font-style: italic; font-size: 1.4rem; }
+
+  /* ===== Service Flow: vertical numbered steps ===== */
+  .service.tile { --accent: var(--c-service); }
+  .flow-steps { display: flex; flex-direction: column; gap: 0; margin-bottom: 18px; }
+  .flow-step {
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    gap: 14px;
+    padding: 10px 0;
+    align-items: flex-start;
+    position: relative;
+  }
+  .flow-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 14px;
+    top: 32px;
+    bottom: -2px;
+    width: 2px;
+    background: var(--rule-strong);
+  }
+  .flow-num {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 1.5px solid var(--c-service);
+    color: var(--c-service);
+    font-weight: 800;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+  .flow-text {
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--ink-2);
+    padding-top: 5px;
+    text-wrap: pretty;
+  }
+  .service-meta {
+    display: flex;
+    gap: 0;
+    margin-top: auto;
+    padding-top: 14px;
+    border-top: 1px solid var(--rule);
+  }
+  .meta-cell {
+    flex: 1;
+    padding: 0 12px;
+    border-right: 1px solid var(--rule);
+  }
+  .meta-cell:first-child { padding-left: 0; }
+  .meta-cell:last-child { padding-right: 0; border-right: none; }
+  .meta-cell .lab {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--ink-3);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+  .meta-cell .v {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* ===== Business Model: vertical KV with strong keys ===== */
+  .biz.tile { --accent: var(--c-biz); }
+  .kv-list { display: flex; flex-direction: column; gap: 0; }
+  .kv-row {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--rule);
+    align-items: baseline;
+  }
+  .kv-row:first-child { padding-top: 0; }
+  .kv-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .kv-key {
+    font-weight: 800;
+    color: var(--c-biz);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .kv-val {
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--ink-2);
+    text-wrap: pretty;
+  }
+  .kv-val .pill-free {
+    display: inline-block;
+    background: #f0fdf4;
+    color: var(--c-diff);
+    border: 1px solid #bbf7d0;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 4px;
+    margin-right: 6px;
+    letter-spacing: 0.04em;
+  }
+
+  /* ===== Differentiation: highlighted patent + clean list + tags ===== */
+  .diff.tile { --accent: var(--c-diff); }
+  .feature-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .feature {
+    padding: 10px 12px 10px 14px;
+    font-size: 14.5px;
+    line-height: 1.6;
+    color: var(--ink-2);
+    border-left: 2px solid var(--rule-strong);
+    text-wrap: pretty;
+  }
+  .feature.patent {
+    background: #f0fdf4;
+    border-left: 3px solid var(--c-diff);
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .feature.patent .pmark {
+    display: inline-block;
+    background: var(--c-diff);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 3px;
+    margin-right: 6px;
+    letter-spacing: 0.08em;
+    vertical-align: 2px;
+  }
+  .target-block {
+    font-size: 13.5px;
+    color: var(--ink-3);
+    margin-bottom: 12px;
+    line-height: 1.55;
+  }
+  .target-block strong { color: var(--ink); font-weight: 800; }
+  .badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 14px; border-top: 1px solid var(--rule); }
+  .badge {
+    background: transparent;
+    color: var(--c-diff);
+    border: 1px solid #bbf7d0;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12.5px;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+  .badge::before { content: '★ '; }
+
+  /* ===== Reputation: cream tile, color via dots only ===== */
+  .rep.tile { --accent: var(--ink-3); background: #fffaf0; }
+  .rep-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  .rep-section .rep-heading {
+    font-size: 12.5px;
+    font-weight: 800;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .rep-heading.pos { color: var(--c-rep-pos); }
+  .rep-heading.neg { color: var(--c-rep-neg); }
+  .rep-heading .signal {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+  .rep-heading.pos .signal { background: var(--c-rep-pos); }
+  .rep-heading.neg .signal { background: var(--c-rep-neg); }
+  .rep-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .rep-item {
+    font-size: 14px;
+    line-height: 1.6;
+    padding-left: 16px;
+    position: relative;
+    text-wrap: pretty;
+    color: var(--ink-2);
+  }
+  .rep-item::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 9px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+  .rep-list.pos .rep-item::before { background: var(--c-rep-pos); }
+  .rep-list.neg .rep-item::before { background: var(--c-rep-neg); }
+
+  /* ===== Marketing ===== */
+  .mkt.tile { --accent: var(--c-mkt); }
+  .tv-block {
+    border: 1px solid #ddd6fe;
+    background: #faf7ff;
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-bottom: 18px;
+  }
+  .tv-tag {
+    font-size: 11px;
+    font-weight: 800;
+    background: var(--c-mkt);
+    color: #fff;
+    padding: 3px 9px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: 10px;
+    letter-spacing: 0.14em;
+  }
+  .tv-text {
+    font-size: 14.5px;
+    line-height: 1.7;
+    color: var(--ink);
+    text-wrap: pretty;
+  }
+  .tv-text strong { color: var(--c-mkt); font-weight: 800; }
+  .mkt-row {
+    font-size: 14px;
+    line-height: 1.65;
+    padding: 14px 0;
+    border-top: 1px solid var(--rule);
+    color: var(--ink-2);
+    text-wrap: pretty;
+  }
+  .mkt-row .label {
+    font-weight: 800;
+    color: var(--c-mkt);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    display: block;
+    margin-bottom: 6px;
+  }
+  .mkt-row ul {
+    list-style: none;
+    margin-top: 4px;
+  }
+  .mkt-row .ad-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .mkt-row .ad-list li {
+    font-size: 14px;
+    line-height: 1.55;
+    padding-left: 14px;
+    position: relative;
+  }
+  .mkt-row .ad-list li::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 9px;
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--c-mkt);
+  }
+
+  .social-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  .social-row {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--rule);
+    align-items: baseline;
+    font-size: 13.5px;
+  }
+  .social-row:last-child { border-bottom: none; }
+  .social-key {
+    font-weight: 800;
+    color: var(--c-mkt);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+  }
+  .social-val {
+    color: var(--ink-2);
+    line-height: 1.5;
+  }
+
+  /* ===== Hiring ===== */
+  .hire.tile { --accent: var(--c-hire); }
+  .hire-sub {
+    font-size: 13px;
+    color: var(--ink-3);
+    margin-top: -8px;
+    margin-bottom: 14px;
+  }
+  .hire-list { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; }
+  .hire-item {
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 11px 0 11px 18px;
+    position: relative;
+    border-bottom: 1px solid var(--rule);
+    color: var(--ink-2);
+    text-wrap: pretty;
+  }
+  .hire-item:last-child { border-bottom: none; }
+  .hire-item::before {
+    content: '+';
+    position: absolute;
+    left: 0;
+    top: 10px;
+    color: var(--c-hire);
+    font-weight: 800;
+    font-size: 16px;
+    line-height: 1.4;
+  }
+
+  /* ===== News: VERTICAL TIMELINE ===== */
+  .news.tile { --accent: var(--c-news); }
+  .news-timeline {
+    position: relative;
+    padding-left: 18px;
+    margin-top: 4px;
+  }
+  .news-timeline::before {
+    content: '';
+    position: absolute;
+    left: 4px; top: 6px; bottom: 6px;
+    width: 2px;
+    background: var(--rule-strong);
+  }
+  .news-row {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule);
+    position: relative;
+  }
+  .news-row:last-child { border-bottom: none; }
+  .news-row::before {
+    content: '';
+    position: absolute;
+    left: -18px; top: 18px;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--bg-card);
+    border: 2px solid var(--c-news);
+  }
+  .news-row.recent::before { background: var(--c-scale); border-color: var(--c-scale); box-shadow: 0 0 0 4px rgba(194,65,12,0.15); }
+  .news-date {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--ink);
+    letter-spacing: 0.05em;
+    font-variant-numeric: tabular-nums;
+    padding-top: 2px;
+  }
+  .news-date small {
+    display: block;
+    font-size: 11px;
+    color: var(--ink-4);
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-top: 3px;
+  }
+  .news-body { min-width: 0; }
+  .news-title {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--ink);
+    line-height: 1.4;
+    letter-spacing: -0.005em;
+  }
+  .news-summary {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--ink-3);
+    margin-top: 5px;
+    text-wrap: pretty;
+  }
+
+  .empty-cell { color: var(--ink-4); font-style: italic; }
+  .grid > * { animation: fadeIn 0.32s ease both; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .grid > *:nth-child(2) { animation-delay: 0.04s; }
+  .grid > *:nth-child(3) { animation-delay: 0.07s; }
+  .grid > *:nth-child(4) { animation-delay: 0.10s; }
+  .grid > *:nth-child(5) { animation-delay: 0.13s; }
+  .grid > *:nth-child(6) { animation-delay: 0.16s; }
+  .grid > *:nth-child(7) { animation-delay: 0.19s; }
+  .grid > *:nth-child(8) { animation-delay: 0.22s; }
+  .grid > *:nth-child(9) { animation-delay: 0.25s; }
+</style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sb-eyebrow">Compete · Research</div>
+    <div class="sb-title">車買取一括査定<br/>競合インテリジェンス</div>
+    <div class="sb-section">調査済み企業</div>
+    <ul class="company-list" id="companyList"></ul>
+    <div class="sb-footer">AI Agent · Claude Code<br/>最終更新 2026-04-25</div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="crumb">Competitive Intelligence Dashboard</div>
+      <div class="timestamp" id="timestamp">—</div>
+    </div>
+    <div class="grid" id="grid"></div>
+  </main>
+
+<script>
+const COMPANIES_DATA = [
+  {
+    "id": "mota",
+    "name": "MOTA（株式会社MOTA）",
+    "url": "https://mota.jp",
+    "priority": "self",
+    "summary": "MOTA車買取は「事前入札＋上位3社連絡方式」の特許取得型一括査定サービス（特許第7614593号）。最大20社が車両情報のみで入札し、高額上位3社のみ個人情報を取得できる仕組みで業界の電話ラッシュ問題を解決。2026年1月に月間申込者数78,000人を突破し、提携1,500社超・3年CAGR 205%以上の成長を継続。2025年5月にエスクローサービス「あんしん決済」を開始し決済まで垂直統合。複数比較サイトで一括査定1位評価、リピート希望率79%。",
+    "details": {
+      "service": {
+        "overview": "最大20社の事前入札による無料一括査定。",
+        "flow_steps": [
+          "車情報入力（メーカー・年式・グレード・走行距離・事故歴・色）約45秒",
+          "個人情報入力（氏名・郵便番号・メール・電話番号）",
+          "翌日18時にマイページで最大20社の入札額を公開",
+          "高額上位3社にのみ個人情報を開示・実車査定を依頼",
+          "上位3社から電話連絡 → 出張査定の日程調整",
+          "成約・引渡し（あんしん決済で代金保護）"
+        ],
+        "partners": "1,500社以上（最大20社/件が入札）",
+        "coverage_area": "全国対応（地方は入札業者が少ない場合あり）",
+        "speed": "申込翌日18時に確定（最短3時間）"
+      },
+      "business_model": {
+        "revenue_type": "買取業者からの成約手数料型",
+        "user_cost": "完全無料（査定費・手数料・キャンセル料・あんしん決済すべてゼロ）",
+        "dealer_cost": "成約手数料型。規約で減額禁止・キャンセル料請求禁止を義務化",
+        "info_disclosure": "申込時は車両情報のみ全業者に開示。翌日18時に上位3社にのみ個人情報を開示（下位業者へは渡らない）",
+        "secondary_revenue": "不動産DX事業（2024年12月開始）。将来的に人材サービスへ展開計画"
+      },
+      "differentiation": {
+        "unique_features": [
+          "事前入札＋上位3社連絡方式（特許第7614593号）：業界唯一の特許技術で電話ラッシュをゼロに",
+          "あんしん決済（旧MOTA決済）：エスクローサービスで代金未払い・詐欺リスクを排除",
+          "入札下限額保護ルール：規約で上位3社入選後の恣意的な減額を禁止",
+          "MOTA車買取サポート：商談・価格交渉を代行（一部地域）"
+        ],
+        "lp_catchcopy": "買取店が競うから高くなるMOTA車買取",
+        "target_users": "電話ラッシュを嫌う忙しいビジネスパーソン・デジタルネイティブ層",
+        "authority_claims": [
+          "一括査定ランキング1位（2026年版）",
+          "リピート希望率 79%",
+          "高値実感率 74%",
+          "月間申込 78,000人突破"
+        ]
+      },
+      "scale": {
+        "users": "月間78,000人突破（2026年1月）",
+        "assessments": "売上3年CAGR 205%以上",
+        "partners_trend": "2023年450社 → 2024年900社 → 2025年〜1,500社超"
+      },
+      "marketing": {
+        "tv_cm": "バカリズム起用。2024年1月〜全国TVCM（「高額買取の理由」「安心安全の理由」各30秒・15秒）。2024年11月〜新WebCM「すごくラク」「納得の高値」篇",
+        "seo_rankings": "「車 一括査定」関連KWで複数比較メディアが1位推薦。テクニカルSEO担当を積極採用中",
+        "social_followers": {
+          "twitter_x": "@MOTA_Guide（フォロワー数非確認）",
+          "youtube": "YouTube CMを主力チャネルとして活用",
+          "instagram": "@mota_editor 2,097フォロワー"
+        },
+        "ad_theme": "①電話ラッシュゼロ ②高額査定（競争原理）③個人情報保護。2021→2023年でCV18倍・月数億円規模の広告費運用"
+      },
+      "reputation": {
+        "positive_themes": [
+          "電話が上位3社のみ。「想像より少なかった」",
+          "ディーラー下取りより平均30万円以上高値",
+          "申込45秒〜と手軽でUIが使いやすい",
+          "リピート希望率79%・高値実感率74%"
+        ],
+        "negative_themes": [
+          "高額入札→実車査定後に減額するケースあり（規約改定で対処中）",
+          "地方エリアでは1〜2社しか入札しないことがある",
+          "他社売却を伝えてもしつこく電話する業者が存在",
+          "査定結果が翌日18時まで待つ必要がある（即日不可）"
+        ]
+      },
+      "news": [
+        { "date": "2026-04", "title": "本社移転", "summary": "東京都港区赤坂グリーンクロス22Fへ移転。" },
+        { "date": "2025-10", "title": "「MOTA決済」→「あんしん決済」へ名称変更", "summary": "サービス内容変更なし、名称のみ変更。" },
+        { "date": "2025-05", "title": "エスクローサービス「MOTA決済」開始", "summary": "買取代金の入金確認まで車両引き渡し不可。詐欺・未払いリスク排除。ユーザー無料。" },
+        { "date": "2025-01", "title": "特許第7614593号 取得", "summary": "事前入札方式一括査定サービスの特許。" },
+        { "date": "2024-12", "title": "不動産DX事業開始", "summary": "マンション・戸建・土地の査定比較サービスを新規展開。" },
+        { "date": "2024-11", "title": "新WebCM「すごくラク」「納得の高値」篇 公開", "summary": "バカリズム出演。電話ラッシュの煩わしさを訴求。" },
+        { "date": "2024-01", "title": "バカリズムTVCM 全国放映開始", "summary": "「高額買取の理由」「安心安全の理由」各30秒・15秒の4本。" }
+      ],
+      "hiring_signals": [
+        "テクニカルSEO担当（SEO基盤強化が優先課題）",
+        "マーケティング責任者候補（新規事業・不動産DX等の集客立ち上げ）",
+        "バックエンド・フロントエンド・インフラエンジニア（計4ポジション）",
+        "クライアント営業・クライアントサクセス（加盟業者数拡大中）",
+        "MOTA車買取サポート検査員（関東・関西・東海：出張査定の地域拡大シグナル）",
+        "月数億円広告費運用プランナー（大規模広告投資継続の意思表示）"
+      ]
+    },
+    "collected_at": "2026-04-25T12:00:00"
+  }
+];
+
+// ===== Utilities =====
+const $ = (s, r = document) => r.querySelector(s);
+const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const isEmpty = v => v == null || v === '' || v === '—' || (Array.isArray(v) && v.length === 0);
+const dash = '<span class="empty-cell">—</span>';
+
+// Parse "月間78,000人突破（2026年1月）" → { num: "78,000", unit: "人/月", note: "2026年1月時点" }
+function parseUsers(text) {
+  if (isEmpty(text)) return null;
+  const m = String(text).match(/([\d,]+)\s*人/);
+  if (!m) return null;
+  const noteMatch = String(text).match(/[（(]([^）)]+)[）)]/);
+  return { num: m[1], unit: '人/月', note: noteMatch ? noteMatch[1] + '時点' : '月間申込者数' };
+}
+function parsePartners(text) {
+  if (isEmpty(text)) return null;
+  const m = String(text).match(/([\d,]+)\s*社/);
+  if (!m) return null;
+  return { num: m[1], unit: '社+', note: '加盟買取業者' };
+}
+function parseCAGR(text) {
+  if (isEmpty(text)) return null;
+  const m = String(text).match(/([\d\.]+)\s*%/);
+  if (!m) return null;
+  return { num: m[1], unit: '%', note: '売上3年CAGR' };
+}
+
+// Highlight key facts (numbers, %, 特許番号, 「」 quotes) in summary
+function highlightSummary(text) {
+  if (isEmpty(text)) return '—';
+  let s = escapeHtml(text);
+  // numbers with units
+  s = s.replace(/(\d[\d,]*\s*(?:人|社|%|％|円|億|万|倍|位|年|月|時間|秒|時|個))/g, '<mark>$1</mark>');
+  // patent numbers
+  s = s.replace(/(特許第[\d]+号)/g, '<mark>$1</mark>');
+  // quoted phrases 「」
+  s = s.replace(/「([^」]+)」/g, '<mark>「$1」</mark>');
+  return s;
+}
+
+// ===== Sidebar =====
+function priorityClass(p) {
+  return ({ self:'self', high:'high', medium:'medium', low:'low' })[p] || 'low';
+}
+function priorityLabel(p) {
+  return ({ self:'自社', high:'HIGH', medium:'MED', low:'LOW' })[p] || String(p||'').toUpperCase();
+}
+
+function renderSidebar(activeId) {
+  const list = $('#companyList');
+  list.innerHTML = COMPANIES_DATA.map(c => {
+    const cls = priorityClass(c.priority);
+    const shortName = c.name.replace(/（.*?）/, '');
+    return `
+      <li class="company-item ${c.id === activeId ? 'active' : ''}" data-id="${escapeHtml(c.id)}">
+        <span class="ci-marker"></span>
+        <span class="ci-name">${escapeHtml(shortName)}</span>
+        <span class="ci-prio ${cls}">${priorityLabel(c.priority)}</span>
+      </li>
+    `;
+  }).join('');
+  list.querySelectorAll('.company-item').forEach(el => {
+    el.addEventListener('click', () => renderAll(el.dataset.id));
+  });
+}
+
+// ===== Tiles =====
+function heroTile(c) {
+  const url = c.url ? `<a class="hero-url" href="${escapeHtml(c.url)}" target="_blank" rel="noopener">${escapeHtml(c.url)}</a>` : '';
+  const quote = c.details?.differentiation?.lp_catchcopy;
+  return `
+    <section class="hero">
+      <div class="hero-left">
+        <div>
+          <div class="hero-eyebrow">
+            FOCUS COMPANY
+            <span class="priority-pill">${priorityLabel(c.priority)}</span>
+          </div>
+          <div class="hero-name">${escapeHtml(c.name)}</div>
+          ${url}
+        </div>
+        <div>
+          <div class="hero-quote-cap">LP キャッチコピー</div>
+          <div class="hero-quote">${isEmpty(quote) ? '—' : escapeHtml(quote)}</div>
+        </div>
+      </div>
+      <div class="hero-right">
+        <div class="hero-summary-cap">エグゼクティブサマリー</div>
+        <div class="hero-summary">${highlightSummary(c.summary)}</div>
+      </div>
+    </section>
+  `;
+}
+
+function scaleTile(c) {
+  const u = parseUsers(c.details?.scale?.users);
+  const p = parsePartners(c.details?.service?.partners);
+  const g = parseCAGR(c.details?.scale?.assessments);
+
+  const stat = (label, item, fallbackNote) => {
+    if (!item) return `
+      <div class="scale-stat">
+        <div class="scale-label">${label}</div>
+        <div class="scale-num stat-empty">—</div>
+      </div>`;
+    return `
+      <div class="scale-stat">
+        <div class="scale-label">${label}</div>
+        <div class="scale-num">${escapeHtml(item.num)}<small>${escapeHtml(item.unit)}</small></div>
+        <div class="scale-note">${escapeHtml(item.note || fallbackNote || '')}</div>
+      </div>`;
+  };
+
+  return `
+    <section class="tile scale accent span-2">
+      <div class="tile-eyebrow"><span class="num">01</span> 規模感</div>
+      <div class="scale-stack">
+        ${stat('月間利用申込者', u)}
+        ${stat('提携業者', p)}
+        ${stat('成長率', g)}
+      </div>
+    </section>
+  `;
+}
+
+function serviceTile(c) {
+  const s = c.details?.service || {};
+  const steps = Array.isArray(s.flow_steps) ? s.flow_steps : [];
+  const stepHtml = steps.length === 0 ? dash :
+    `<div class="flow-steps">
+      ${steps.map((st, i) => `
+        <div class="flow-step">
+          <div class="flow-num">${i + 1}</div>
+          <div class="flow-text">${escapeHtml(String(st).replace(/^[①②③④⑤⑥⑦⑧⑨⑩]/, '').trim())}</div>
+        </div>
+      `).join('')}
+    </div>`;
+
+  const meta = [
+    ['対応エリア', s.coverage_area],
+    ['査定速度', s.speed],
+    ['提携業者', s.partners],
+  ].filter(m => !isEmpty(m[1]));
+
+  return `
+    <section class="tile service accent span-4">
+      <div class="tile-eyebrow"><span class="num">02</span> サービスフロー</div>
+      <div class="tile-title">最大20社の事前入札 → 上位3社のみ電話</div>
+      ${stepHtml}
+      ${meta.length ? `
+      <div class="service-meta">
+        ${meta.map(([l, v]) => `
+          <div class="meta-cell">
+            <div class="lab">${escapeHtml(l)}</div>
+            <div class="v">${escapeHtml(v)}</div>
+          </div>`).join('')}
+      </div>` : ''}
+    </section>
+  `;
+}
+
+function bizTile(c) {
+  const b = c.details?.business_model || {};
+  const renderUserCost = (v) => {
+    if (isEmpty(v)) return dash;
+    return `<span class="pill-free">完全無料</span>${escapeHtml(v)}`;
+  };
+  const rows = [
+    ['収益モデル', b.revenue_type, false],
+    ['ユーザー費用', b.user_cost, true],
+    ['業者費用', b.dealer_cost, false],
+    ['情報開示', b.info_disclosure, false],
+    ['副収益', b.secondary_revenue, false],
+  ].filter(r => !isEmpty(r[1]));
+
+  return `
+    <section class="tile biz accent span-3">
+      <div class="tile-eyebrow"><span class="num">03</span> ビジネスモデル</div>
+      <div class="tile-title">成約手数料型／ユーザーは完全無料</div>
+      <div class="kv-list">
+        ${rows.map(([k, v, special]) => `
+          <div class="kv-row">
+            <div class="kv-key">${escapeHtml(k)}</div>
+            <div class="kv-val">${special ? renderUserCost(v) : escapeHtml(v)}</div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function diffTile(c) {
+  const d = c.details?.differentiation || {};
+  const features = Array.isArray(d.unique_features) ? d.unique_features : [];
+  const featuresHtml = features.length === 0 ? dash :
+    features.map(f => {
+      const isPatent = /特許|独占/.test(f);
+      const mark = isPatent ? '<span class="pmark">特許</span>' : '';
+      return `<div class="feature ${isPatent ? 'patent' : ''}">${mark}${escapeHtml(f)}</div>`;
+    }).join('');
+
+  const targetLine = isEmpty(d.target_users) ? '' :
+    `<div class="target-block"><strong>ターゲット</strong> ／ ${escapeHtml(d.target_users)}</div>`;
+
+  const claims = Array.isArray(d.authority_claims) ? d.authority_claims : [];
+  const claimsHtml = claims.length === 0 ? '' :
+    `<div class="badges">${claims.map(c => `<span class="badge">${escapeHtml(c)}</span>`).join('')}</div>`;
+
+  return `
+    <section class="tile diff accent span-3">
+      <div class="tile-eyebrow"><span class="num">04</span> 差別化要因</div>
+      <div class="tile-title">電話ラッシュをゼロにする特許技術</div>
+      <div class="feature-list">${featuresHtml}</div>
+      ${targetLine}
+      ${claimsHtml}
+    </section>
+  `;
+}
+
+function repTile(c) {
+  const r = c.details?.reputation || {};
+  const pos = Array.isArray(r.positive_themes) ? r.positive_themes : [];
+  const neg = Array.isArray(r.negative_themes) ? r.negative_themes : [];
+  return `
+    <section class="tile rep accent span-3">
+      <div class="tile-eyebrow"><span class="num">05</span> ユーザー評判</div>
+      <div class="rep-grid">
+        <div class="rep-section">
+          <div class="rep-heading pos"><span class="signal"></span>好評ポイント</div>
+          ${pos.length === 0 ? dash : `<ul class="rep-list pos">${pos.map(t => `<li class="rep-item">${escapeHtml(t)}</li>`).join('')}</ul>`}
+        </div>
+        <div class="rep-section">
+          <div class="rep-heading neg"><span class="signal"></span>不満ポイント</div>
+          ${neg.length === 0 ? dash : `<ul class="rep-list neg">${neg.map(t => `<li class="rep-item">${escapeHtml(t)}</li>`).join('')}</ul>`}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function mktTile(c) {
+  const m = c.details?.marketing || {};
+  const tvBlock = isEmpty(m.tv_cm) ? '' : `
+    <div class="tv-block">
+      <div class="tv-tag">TV CM</div>
+      <div class="tv-text">${escapeHtml(m.tv_cm)}</div>
+    </div>`;
+
+  const social = m.social_followers || {};
+  const socialList = [
+    ['Instagram', social.instagram],
+    ['YouTube', social.youtube],
+    ['X / Twitter', social.twitter_x]
+  ].filter(([,v]) => !isEmpty(v));
+
+  // Split ad_theme into bullets if it has ① ② ③ markers or '・'
+  function splitAd(text) {
+    if (isEmpty(text)) return [];
+    const t = String(text);
+    if (/[①②③④⑤⑥⑦⑧⑨⑩]/.test(t)) {
+      return t.split(/[①②③④⑤⑥⑦⑧⑨⑩]/).map(s => s.trim()).filter(Boolean);
+    }
+    return [t];
+  }
+  const adItems = splitAd(m.ad_theme);
+
+  return `
+    <section class="tile mkt accent span-3">
+      <div class="tile-eyebrow"><span class="num">06</span> マーケティング</div>
+      <div class="tile-title">バカリズムTVCM × 月数億円広告投資</div>
+      ${tvBlock}
+      ${isEmpty(m.seo_rankings) ? '' : `
+        <div class="mkt-row"><span class="label">SEO 戦略</span>${escapeHtml(m.seo_rankings)}</div>`}
+      ${socialList.length === 0 ? '' : `
+        <div class="mkt-row">
+          <span class="label">SNS チャネル</span>
+          <div class="social-grid">
+            ${socialList.map(([k, v]) => `
+              <div class="social-row">
+                <div class="social-key">${escapeHtml(k)}</div>
+                <div class="social-val">${escapeHtml(v)}</div>
+              </div>`).join('')}
+          </div>
+        </div>`}
+      ${adItems.length === 0 ? '' : `
+        <div class="mkt-row">
+          <span class="label">広告テーマ</span>
+          ${adItems.length > 1
+            ? `<ul class="ad-list">${adItems.map(a => `<li>${escapeHtml(a)}</li>`).join('')}</ul>`
+            : escapeHtml(adItems[0])}
+        </div>`}
+    </section>
+  `;
+}
+
+function hireTile(c) {
+  const list = Array.isArray(c.details?.hiring_signals) ? c.details.hiring_signals : [];
+  return `
+    <section class="tile hire accent span-6">
+      <div class="tile-eyebrow"><span class="num">07</span> 採用シグナル</div>
+      <div class="tile-title">投資領域の手がかり（募集ポジション）</div>
+      ${list.length === 0 ? dash : `<ul class="hire-list">${list.map(h => `<li class="hire-item">${escapeHtml(h)}</li>`).join('')}</ul>`}
+    </section>
+  `;
+}
+
+function newsTile(c) {
+  const list = Array.isArray(c.details?.news) ? c.details.news : [];
+  // assume sorted desc; mark the first 2 as recent
+  return `
+    <section class="tile news accent span-6">
+      <div class="tile-eyebrow"><span class="num">08</span> 最新動向タイムライン</div>
+      <div class="tile-title">直近2年の主要アップデート</div>
+      ${list.length === 0 ? dash : `
+        <div class="news-timeline">
+          ${list.map((n, i) => {
+            const m = String(n.date || '').match(/^(\d{4})-(\d{2})/);
+            const year = m ? m[1] : '';
+            const mon = m ? m[2] + '月' : '';
+            return `
+              <div class="news-row ${i < 2 ? 'recent' : ''}">
+                <div class="news-date">${escapeHtml(year)}<small>${escapeHtml(mon)}</small></div>
+                <div class="news-body">
+                  <div class="news-title">${escapeHtml(n.title)}</div>
+                  <div class="news-summary">${escapeHtml(n.summary)}</div>
+                </div>
+              </div>`;
+          }).join('')}
+        </div>`}
+    </section>
+  `;
+}
+
+// ===== Render =====
+function renderGrid(c) {
+  const grid = $('#grid');
+  grid.innerHTML = '';
+  void grid.offsetWidth;
+  grid.innerHTML = [
+    heroTile(c),
+    scaleTile(c),
+    serviceTile(c),
+    bizTile(c),
+    diffTile(c),
+    repTile(c),
+    mktTile(c),
+    hireTile(c),
+    newsTile(c),
+  ].join('');
+}
+
+function renderAll(id) {
+  const c = COMPANIES_DATA.find(x => x.id === id) || COMPANIES_DATA[0];
+  renderSidebar(c.id);
+  renderGrid(c);
+  $('#timestamp').textContent = `Collected · ${c.collected_at || '—'}`;
+}
+
+renderAll(COMPANIES_DATA[0].id);
+</script>
+</body>
+</html>

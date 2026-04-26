@@ -85,6 +85,7 @@ def load_all_latest_research() -> list[dict]:
     for company in load_companies():
         cached = load_cached_research(company["id"])
         if cached:
+            cached.setdefault("company_id", company["id"])
             results.append(cached)
     return results
 

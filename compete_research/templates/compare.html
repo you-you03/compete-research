@@ -1,0 +1,1877 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<title>横断比較ビュー — 競合リサーチ</title>
+<style>
+  :root {
+    --bg: #f5f4f0;
+    --bg-card: #fbfaf6;
+    --ink: #14171c;
+    --ink-2: #3d434c;
+    --ink-3: #6b6f76;
+    --ink-4: #9aa0a8;
+    --rule: #e6e2d6;
+    --rule-strong: #d6d1c0;
+
+    --c-hero:    #0f172a;
+    --c-scale:   #c2410c;
+    --c-service: #0369a1;
+    --c-biz:     #b91c1c;
+    --c-diff:    #047857;
+    --c-rep-pos: #047857;
+    --c-rep-neg: #b91c1c;
+    --c-mkt:     #6d28d9;
+    --c-hire:    #4d7c0f;
+    --c-news:    #1e293b;
+    --c-self:    #b45309;
+    --c-ir:      #0c4a6e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    min-height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body { display: flex; min-height: 100vh; }
+
+  mark {
+    background: rgba(14,165,233,0.13);
+    border-radius: 3px;
+    padding: 0 3px;
+    color: inherit;
+  }
+
+  /* ============ Sidebar ============ */
+  .sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    background: var(--bg-card);
+    color: var(--ink-2);
+    padding: 28px 16px;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--rule);
+  }
+  .sb-eyebrow {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.22em;
+    color: var(--ink-3);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    padding: 0 12px;
+  }
+  .sb-title {
+    font-size: 21px;
+    font-weight: 800;
+    color: var(--ink);
+    margin-bottom: 28px;
+    line-height: 1.35;
+    padding: 0 12px;
+    letter-spacing: -0.01em;
+  }
+  .sb-section {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--ink-3);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    padding: 0 12px;
+    margin: 8px 0 10px;
+  }
+  .nav-list { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 10px;
+    cursor: pointer; font-size: 14px; font-weight: 500;
+    color: var(--ink-2); text-decoration: none;
+    transition: background 0.14s ease, color 0.14s ease;
+  }
+  .nav-item:hover { background: rgba(0,0,0,0.04); color: var(--ink); }
+  .nav-item.active {
+    background: var(--bg);
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .nav-dot {
+    width: 4px; height: 20px; border-radius: 2px;
+    background: var(--rule-strong);
+    flex-shrink: 0;
+    transition: background 0.16s ease;
+  }
+  .nav-num {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--ink-4);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.08em;
+    min-width: 18px;
+  }
+  .nav-item.active .nav-num { color: var(--ink-3); }
+
+  .sb-back-link {
+    display: flex; align-items: center; gap: 8px;
+    margin: 20px 12px 0;
+    padding: 10px 14px;
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    font-size: 13px; font-weight: 700;
+    color: var(--ink-2);
+    text-decoration: none;
+    transition: background 0.14s, color 0.14s;
+  }
+  .sb-back-link:hover { background: #ece9e0; color: var(--ink); }
+  .sb-back-link .arrow { color: var(--ink-4); font-weight: 600; }
+
+  .sb-footer {
+    margin-top: auto;
+    padding: 16px 12px 0;
+    font-size: 12px;
+    color: var(--ink-3);
+    border-top: 1px solid var(--rule);
+    line-height: 1.6;
+  }
+
+  /* ============ Main ============ */
+  .main {
+    flex: 1;
+    padding: 28px 36px 80px;
+    overflow-x: hidden;
+    max-width: 1280px;
+  }
+  .topbar {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    gap: 16px;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 14px;
+  }
+  .crumb {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .timestamp {
+    font-size: 13px;
+    color: var(--ink-4);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.05em;
+  }
+  .timestamp .dot {
+    margin: 0 8px;
+    color: var(--rule-strong);
+  }
+
+  /* ============ Section common ============ */
+  .compare-section {
+    margin-bottom: 72px;
+    scroll-margin-top: 24px;
+    animation: fadeUp 0.42s ease both;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: none; }
+  }
+  .cs-header {
+    display: flex; flex-direction: column; gap: 6px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .cs-eyebrow {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--ink-3);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .cs-eyebrow .num {
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-4);
+  }
+  .cs-eyebrow .accent-bar {
+    width: 22px; height: 2px;
+    background: var(--accent, var(--ink));
+    border-radius: 2px;
+  }
+  .cs-title {
+    font-size: 26px; font-weight: 800;
+    letter-spacing: -0.01em; color: var(--ink);
+  }
+  .cs-desc { font-size: 14px; color: var(--ink-3); line-height: 1.6; }
+
+  .empty-cell { color: var(--ink-4); font-style: italic; }
+
+  /* ============ 01. Scores ============ */
+  .score-table-wrap {
+    background: var(--bg-card);
+    border: 1px solid var(--rule);
+    border-radius: 18px;
+    padding: 8px;
+    overflow: hidden;
+  }
+  .score-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  .score-table th, .score-table td {
+    padding: 18px 16px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: middle;
+    text-align: center;
+  }
+  .score-table tr:last-child th, .score-table tr:last-child td { border-bottom: none; }
+  .score-table thead th {
+    text-align: center;
+    font-size: 13px; font-weight: 800;
+    color: var(--ink);
+    border-bottom: 2px solid var(--rule-strong);
+    padding: 14px 16px 12px;
+  }
+  .score-table thead th .ticker {
+    display: block;
+    font-size: 10px; font-weight: 700;
+    color: var(--ink-4);
+    letter-spacing: 0.1em;
+    margin-top: 4px;
+    text-transform: uppercase;
+  }
+  .score-table thead th.is-self {
+    color: var(--c-scale);
+  }
+  .score-table thead th.is-self .ticker {
+    color: var(--c-scale);
+    opacity: 0.7;
+  }
+  .score-table .row-label {
+    text-align: left;
+    width: 200px;
+    color: var(--ink-2);
+    font-weight: 700;
+    font-size: 14px;
+    position: relative;
+  }
+  .score-table .row-label .label-dot {
+    display: inline-block;
+    width: 4px; height: 16px;
+    border-radius: 2px;
+    background: var(--accent, var(--rule-strong));
+    margin-right: 10px;
+    vertical-align: -3px;
+  }
+  .score-table .row-label .row-unit {
+    color: var(--ink-4);
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 6px;
+  }
+  .score-cell {
+    line-height: 1;
+  }
+  .score-num {
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .score-bar {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--rule);
+    margin: 10px auto 0;
+    width: 60px;
+    overflow: hidden;
+  }
+  .score-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+  }
+  .score-empty {
+    font-size: 24px;
+    color: var(--ink-4);
+    font-weight: 600;
+  }
+
+  .rationale-list {
+    margin-top: 20px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .score-rationale {
+    background: var(--bg-card);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    padding: 0;
+  }
+  .score-rationale summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 14px 18px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .score-rationale summary::-webkit-details-marker { display: none; }
+  .score-rationale summary::before {
+    content: '+';
+    font-size: 16px;
+    color: var(--ink-4);
+    font-weight: 700;
+    width: 16px;
+    text-align: center;
+  }
+  .score-rationale[open] summary::before { content: '−'; }
+  .score-rationale[open] summary { border-bottom: 1px solid var(--rule); }
+  .score-rationale .rationale-body {
+    padding: 14px 18px 18px 46px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--ink-2);
+  }
+  .score-rationale .summary-prio {
+    margin-left: auto;
+    font-size: 10px; font-weight: 800;
+    padding: 2px 7px; border-radius: 4px;
+    border: 1px solid currentColor;
+    letter-spacing: 0.06em;
+  }
+  .summary-prio.self { color: var(--c-scale); }
+  .summary-prio.high { color: var(--c-biz); }
+  .summary-prio.medium { color: var(--c-service); }
+  .summary-prio.low { color: var(--ink-4); }
+
+  /* ============ 02. Service Flow ============ */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+  }
+  .service-card,
+  .diff-card,
+  .mkt-card {
+    background: var(--bg-card);
+    border: 1px solid var(--rule);
+    border-radius: 18px;
+    padding: 22px 24px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .service-card::before {
+    content: ''; position: absolute;
+    left: 0; top: 22px; bottom: 22px;
+    width: 3px; border-radius: 0 3px 3px 0;
+    background: var(--c-service);
+  }
+  .card-head {
+    display: flex; align-items: center; gap: 8px;
+    flex-wrap: wrap;
+  }
+  .card-name { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; }
+  .card-prio {
+    font-size: 10px; font-weight: 800;
+    padding: 2px 7px; border-radius: 4px;
+    border: 1px solid currentColor;
+    letter-spacing: 0.06em;
+  }
+  .card-prio.self { color: var(--c-scale); }
+  .card-prio.high { color: var(--c-biz); }
+  .card-prio.medium { color: var(--c-service); }
+  .card-prio.low { color: var(--ink-4); }
+
+  .service-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    padding: 12px 0;
+  }
+  .meta-cell {
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .meta-label {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .meta-value {
+    font-size: 13px;
+    color: var(--ink);
+    font-weight: 700;
+    line-height: 1.4;
+  }
+  .meta-value.big {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+  .meta-value.big .unit { font-size: 12px; color: var(--ink-3); margin-left: 2px; font-weight: 700; }
+
+  .service-overview {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--ink-2);
+  }
+  .flow-steps {
+    list-style: none;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .flow-step {
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--ink-2);
+    display: flex;
+    gap: 8px;
+  }
+  .flow-num {
+    flex-shrink: 0;
+    font-weight: 800;
+    color: var(--c-service);
+    font-variant-numeric: tabular-nums;
+    min-width: 18px;
+  }
+  .flow-more {
+    font-size: 11px;
+    color: var(--ink-4);
+    font-style: italic;
+    margin-top: 2px;
+  }
+  .section-subtitle {
+    font-size: 11px; font-weight: 800;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 6px;
+  }
+
+  /* ============ 03. Business Model table ============ */
+  .biz-table-wrap {
+    background: var(--bg-card);
+    border: 1px solid var(--rule);
+    border-radius: 18px;
+    overflow: hidden;
+  }
+  .biz-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .biz-table th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    padding: 14px 18px;
+    border-bottom: 2px solid var(--rule-strong);
+    background: rgba(0,0,0,0.015);
+  }
+  .biz-table td {
+    font-size: 13px;
+    line-height: 1.55;
+    vertical-align: top;
+    padding: 18px;
+    border-bottom: 1px solid var(--rule);
+    color: var(--ink-2);
+  }
+  .biz-table tr:last-child td { border-bottom: none; }
+  .biz-table tr:hover td { background: rgba(0,0,0,0.015); }
+  .biz-co {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .biz-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 3px 9px;
+    border-radius: 4px;
+    border: 1px solid currentColor;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+  }
+
+  /* ============ 04. Differentiation ============ */
+  .diff-card::before {
+    content: ''; position: absolute;
+    left: 0; top: 22px; bottom: 22px;
+    width: 3px; border-radius: 0 3px 3px 0;
+    background: var(--c-diff);
+  }
+  .diff-quote {
+    font-size: 14px;
+    font-style: italic;
+    color: var(--ink-2);
+    line-height: 1.6;
+    border-left: 2px solid var(--rule-strong);
+    padding-left: 12px;
+    font-family: 'Georgia', 'Hiragino Mincho ProN', serif;
+  }
+  .feature-chips {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .feature-chip {
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: rgba(4,120,87,0.08);
+    color: var(--c-diff);
+    border: 1px solid rgba(4,120,87,0.2);
+    font-weight: 600;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .diff-target {
+    font-size: 12px;
+    color: var(--ink-3);
+    line-height: 1.55;
+    border-top: 1px dashed var(--rule);
+    padding-top: 10px;
+  }
+  .diff-target .meta-label { margin-bottom: 4px; }
+
+  /* ============ 05. Marketing ============ */
+  .mkt-overview-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--rule);
+    border-radius: 14px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .mkt-overview-cell {
+    padding: 18px 20px;
+    border-right: 1px solid var(--rule);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .mkt-overview-cell:last-child { border-right: none; }
+  .mkt-co-name { font-size: 14px; font-weight: 800; color: var(--ink); }
+  .mkt-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .mkt-pill {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+    letter-spacing: 0.02em;
+  }
+  .mkt-pill.on {
+    background: rgba(109,40,217,0.1);
+    color: var(--c-mkt);
+    border: 1px solid rgba(109,40,217,0.25);
+  }
+  .mkt-pill.off {
+    background: var(--bg);
+    color: var(--ink-4);
+    border: 1px solid var(--rule-strong);
+  }
+
+  .mkt-card::before {
+    content: ''; position: absolute;
+    left: 0; top: 22px; bottom: 22px;
+    width: 3px; border-radius: 0 3px 3px 0;
+    background: var(--c-mkt);
+  }
+  .mkt-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .mkt-row-label {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .mkt-row-text {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--ink-2);
+  }
+
+  /* ============ 06. IR ============ */
+  .ir-summary-wrap {
+    background: var(--bg-card);
+    border: 1px solid var(--rule);
+    border-radius: 18px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .ir-summary-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .ir-summary-table th {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    padding: 14px 18px;
+    border-bottom: 2px solid var(--rule-strong);
+    text-align: left;
+    background: rgba(0,0,0,0.015);
+  }
+  .ir-summary-table td {
+    font-size: 13px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: middle;
+    color: var(--ink-2);
+  }
+  .ir-summary-table tr:last-child td { border-bottom: none; }
+  .ir-summary-table tr:hover td { background: rgba(0,0,0,0.015); }
+  .ir-summary-co {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--ink);
+  }
+  .ir-trend-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 3px 9px;
+    border-radius: 5px;
+    letter-spacing: 0.04em;
+  }
+  .ir-trend-badge.up   { background: rgba(4,120,87,0.1);  color: var(--c-diff); }
+  .ir-trend-badge.down { background: rgba(185,28,28,0.1); color: var(--c-biz);  }
+  .ir-trend-badge.flat { background: rgba(0,0,0,0.05);    color: var(--ink-3);  }
+  .ir-na { color: var(--ink-4); font-style: italic; }
+
+  .ir-detail-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+  .ir-detail-card {
+    background: var(--bg-card);
+    border: 1px solid var(--rule);
+    border-radius: 20px;
+    padding: 32px 36px;
+    position: relative;
+  }
+  .ir-detail-card::before {
+    content: ''; position: absolute;
+    left: 0; top: 32px; bottom: 32px;
+    width: 4px; border-radius: 0 4px 4px 0;
+    background: var(--c-ir);
+  }
+  .ir-card-head {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .ir-card-name {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+  }
+  .ir-card-overview {
+    font-size: 14.5px;
+    line-height: 1.75;
+    color: var(--ink-2);
+    margin-bottom: 28px;
+    max-width: 880px;
+  }
+  /* Full-width body: chart + plan side by side, larger */
+  .ir-card-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: 36px;
+    margin-bottom: 28px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .ir-block-title {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .ir-block-title::after {
+    content: ''; flex: 1; height: 1px;
+    background: var(--rule);
+  }
+  /* Bigger revenue trend bars */
+  .ir-mini-chart { display: flex; flex-direction: column; gap: 10px; }
+  .ir-mini-row {
+    display: grid;
+    grid-template-columns: 90px 1fr 80px;
+    gap: 14px;
+    align-items: center;
+  }
+  .ir-mini-period {
+    font-size: 12px;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+  .ir-mini-bar-wrap {
+    height: 10px;
+    background: var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .ir-mini-bar {
+    height: 100%;
+    border-radius: 5px;
+    background: var(--c-ir);
+    transition: width 0.6s ease;
+  }
+  .ir-mini-val {
+    font-size: 13px;
+    font-weight: 700;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+  .ir-mini-val .unit { color: var(--ink-4); font-weight: 600; margin-left: 2px; font-size: 11px; }
+
+  /* Plan KV becomes a 2-col stat grid for full-width */
+  .ir-plan-kv {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 16px;
+  }
+  .ir-plan-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 14px;
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+  }
+  .ir-plan-row.wide { grid-column: span 2; }
+  .ir-plan-label {
+    font-size: 10px;
+    color: var(--ink-3);
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .ir-plan-value {
+    font-size: 19px;
+    font-weight: 800;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.015em;
+    line-height: 1.3;
+  }
+  .ir-plan-row.wide .ir-plan-value {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+
+  .ir-assess {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+    margin-bottom: 22px;
+  }
+  .ir-market-badge {
+    font-size: 12px;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 5px;
+    background: rgba(12,74,110,0.08);
+    color: var(--c-ir);
+    border: 1px solid rgba(12,74,110,0.2);
+    letter-spacing: 0.04em;
+  }
+  .ir-chips {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .ir-chip {
+    position: relative;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    font-size: 13.5px;
+    line-height: 1.6;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-weight: 500;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    text-wrap: pretty;
+  }
+  .ir-chip::before {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    margin-top: 2px;
+    background: currentColor;
+    color: var(--bg-card);
+  }
+  .ir-chip.pos {
+    background: rgba(4,120,87,0.06);
+    color: var(--c-diff);
+    border: 1px solid rgba(4,120,87,0.2);
+  }
+  .ir-chip.pos::before { content: '✓'; }
+  .ir-chip.neg {
+    background: rgba(185,28,28,0.05);
+    color: var(--c-biz);
+    border: 1px solid rgba(185,28,28,0.2);
+  }
+  .ir-chip.neg::before { content: '!'; }
+  .ir-chip-text {
+    color: var(--ink);
+    font-weight: 500;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ir-outlook {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--ink-2);
+    padding: 16px 20px;
+    background: rgba(12,74,110,0.04);
+    border-left: 3px solid var(--c-ir);
+    border-radius: 0 10px 10px 0;
+    font-style: italic;
+    max-width: 100%;
+  }
+  .ir-outlook-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--c-ir);
+    margin-bottom: 6px;
+    font-style: normal;
+  }
+
+  .ir-placeholder-wrap {
+    padding: 20px 24px;
+    background: var(--bg-card);
+    border: 1px dashed var(--rule-strong);
+    border-radius: 14px;
+  }
+  .ir-placeholder-title {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink-3); margin-bottom: 12px;
+  }
+  .ir-placeholder-list { display: flex; flex-wrap: wrap; gap: 10px; }
+  .ir-placeholder-item {
+    font-size: 13px;
+    color: var(--ink-3);
+    padding: 8px 14px;
+    border: 1px solid var(--rule);
+    background: var(--bg);
+    border-radius: 8px;
+    font-weight: 600;
+  }
+
+  /* ============ 07. News timeline ============ */
+  .news-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 16px;
+    padding: 12px 18px;
+    background: var(--bg-card);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    align-items: center;
+  }
+  .news-legend-label {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-right: 4px;
+  }
+  .news-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink-2);
+  }
+  .news-legend-swatch {
+    width: 10px; height: 10px;
+    border-radius: 3px;
+    background: var(--co);
+  }
+  .news-legend-count {
+    font-size: 11px;
+    color: var(--ink-4);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .news-timeline {
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--rule);
+    border-radius: 18px;
+    padding: 8px 28px 8px 28px;
+  }
+  .news-item {
+    display: grid;
+    grid-template-columns: 92px 18px 1fr;
+    gap: 16px;
+    align-items: start;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--rule);
+    position: relative;
+  }
+  .news-item:last-child { border-bottom: none; }
+  .news-date {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    padding-top: 4px;
+    letter-spacing: 0.04em;
+    text-align: right;
+  }
+  .news-rail {
+    position: relative;
+    width: 18px;
+    align-self: stretch;
+    display: flex;
+    justify-content: center;
+  }
+  .news-rail::before {
+    content: '';
+    position: absolute;
+    top: 0; bottom: -18px;
+    left: 50%;
+    width: 2px;
+    margin-left: -1px;
+    background: var(--rule);
+  }
+  .news-item:first-child .news-rail::before { top: 6px; }
+  .news-item:last-child .news-rail::before { bottom: auto; height: 6px; }
+  .news-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--co, var(--ink-4));
+    margin-top: 5px;
+    box-shadow: 0 0 0 3px var(--bg-card);
+    z-index: 1;
+    position: relative;
+  }
+  .news-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-left: 6px;
+    border-left: 3px solid var(--co, var(--rule-strong));
+    padding: 2px 0 2px 14px;
+  }
+  .news-co-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 3px 10px 3px 8px;
+    border-radius: 999px;
+    background: var(--co-soft, rgba(0,0,0,0.04));
+    color: var(--co, var(--ink-3));
+    border: 1px solid var(--co-border, var(--rule));
+    width: fit-content;
+    letter-spacing: 0.04em;
+  }
+  .news-co-badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--co, currentColor);
+  }
+  .news-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.45;
+    letter-spacing: -0.005em;
+  }
+  .news-summary {
+    font-size: 13px;
+    color: var(--ink-2);
+    line-height: 1.6;
+  }
+
+  /* small responsive */
+  @media (max-width: 900px) {
+    body { flex-direction: column; }
+    .sidebar { width: 100%; height: auto; position: relative; }
+    .main { padding: 24px 20px 60px; }
+    .ir-card-body { grid-template-columns: 1fr; gap: 24px; }
+    .ir-assess { grid-template-columns: 1fr; gap: 18px; }
+    .ir-plan-kv { grid-template-columns: 1fr; }
+    .score-table .row-label { width: 130px; }
+    .news-item { grid-template-columns: 80px 1fr; gap: 12px; }
+  }
+</style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sb-eyebrow">Compete · Research</div>
+    <div class="sb-title">横断比較ビュー<br/><span style="font-weight:600;font-size:14px;color:var(--ink-3);">Cross-cutting comparison</span></div>
+
+    <div class="sb-section">観点ナビ</div>
+    <ul class="nav-list" id="navList">
+      <li><a class="nav-item" data-target="s-scores"    href="#s-scores"><span class="nav-dot"></span><span class="nav-num">01</span>スコア比較</a></li>
+      <li><a class="nav-item" data-target="s-service"   href="#s-service"><span class="nav-dot"></span><span class="nav-num">02</span>サービスフロー</a></li>
+      <li><a class="nav-item" data-target="s-biz"       href="#s-biz"><span class="nav-dot"></span><span class="nav-num">03</span>ビジネスモデル</a></li>
+      <li><a class="nav-item" data-target="s-diff"      href="#s-diff"><span class="nav-dot"></span><span class="nav-num">04</span>差別化要因</a></li>
+      <li><a class="nav-item" data-target="s-marketing" href="#s-marketing"><span class="nav-dot"></span><span class="nav-num">05</span>マーケティング</a></li>
+      <li><a class="nav-item" data-target="s-ir"        href="#s-ir"><span class="nav-dot"></span><span class="nav-num">06</span>IR・財務分析</a></li>
+      <li><a class="nav-item" data-target="s-news"      href="#s-news"><span class="nav-dot"></span><span class="nav-num">07</span>ニュース横断</a></li>
+    </ul>
+
+    <a href="dashboard.html" class="sb-back-link"><span class="arrow">←</span>企業別ビューへ戻る</a>
+
+    <div class="sb-footer">
+      AI Agent · Claude Code<br/>
+      最終更新 <span id="footerDate">2026-04-26</span>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="crumb">Cross-cutting Comparison</div>
+      <div class="timestamp">
+        <span id="topCount">—</span><span class="dot">·</span>Generated <span id="topDate">—</span>
+      </div>
+    </div>
+
+    <section class="compare-section" id="s-scores"    style="--accent: var(--c-scale); animation-delay: 0.04s;"></section>
+    <section class="compare-section" id="s-service"   style="--accent: var(--c-service); animation-delay: 0.08s;"></section>
+    <section class="compare-section" id="s-biz"       style="--accent: var(--c-biz); animation-delay: 0.12s;"></section>
+    <section class="compare-section" id="s-diff"      style="--accent: var(--c-diff); animation-delay: 0.16s;"></section>
+    <section class="compare-section" id="s-marketing" style="--accent: var(--c-mkt); animation-delay: 0.20s;"></section>
+    <section class="compare-section" id="s-ir"        style="--accent: var(--c-ir); animation-delay: 0.24s;"></section>
+    <section class="compare-section" id="s-news"      style="--accent: var(--c-news); animation-delay: 0.28s;"></section>
+  </main>
+
+<script>
+const TODAY = "2026-04-26";
+
+const COMPANIES_DATA = [
+  {
+    "id": "mota",
+    "name": "MOTA（株式会社MOTA）",
+    "url": "https://mota.jp",
+    "priority": "self",
+    "summary": "MOTA車買取は「事前入札＋上位3社連絡方式」の特許取得型一括査定サービス（特許第7614593号）。最大20社が車両情報のみで入札し、高額上位3社のみ個人情報を取得できる仕組みで業界の電話ラッシュ問題を解決。2026年1月に月間申込者数78,000人を突破し、提携1,500社超・3年CAGR 205%以上の成長を継続。",
+    "scores": {
+      "threat_level": 5,
+      "service_completeness": 5,
+      "marketing_strength": 4,
+      "scoring_rationale": "特許取得・月間78,000件・3年CAGR205%超と国内一括査定市場で最も成長率が高い。事前入札＋上位3社連絡方式で電話ラッシュ問題を構造的に解決し、エスクロー決済まで垂直統合済み。バカリズムTVCM等のマーケ投資も継続中で、自社として最も注力する競合優位構造を持つ。"
+    },
+    "details": {
+      "service": {
+        "overview": "最大20社の事前入札による無料一括査定。査定依頼の翌日18時にマイページで入札額が公開され、ユーザーが上位3社を選んでから個人情報が開示される独自方式。",
+        "flow_steps": [
+          "車情報入力（メーカー・年式・グレード・走行距離・事故歴・色）約45秒",
+          "個人情報入力（氏名・郵便番号・メール・電話番号）",
+          "翌日18時にマイページで最大20社の入札額を公開",
+          "高額上位3社にのみ個人情報を開示・実車査定を依頼",
+          "上位3社から電話連絡 → 出張査定の日程調整",
+          "成約・引渡し（あんしん決済で代金保護）"
+        ],
+        "partners": "1,500社以上",
+        "coverage_area": "全国対応",
+        "speed": "翌日18時に確定",
+        "assessment_types": ["出張査定", "店舗持ち込み査定"]
+      },
+      "business_model": {
+        "revenue_type": "成果報酬",
+        "user_cost": "完全無料（査定費・手数料・キャンセル料・あんしん決済すべてゼロ）",
+        "dealer_fee_details": "成約手数料型。規約で減額禁止・キャンセル料請求禁止を義務化",
+        "dealer_info_flow": "申込時は車両情報のみ全業者に開示。翌日18時に上位3社にのみ個人情報を開示（下位業者へは渡らない）"
+      },
+      "differentiation": {
+        "lp_headline": "買取店が競うから高くなるMOTA車買取",
+        "lp_catchcopy": "買取店が競うから高くなるMOTA車買取",
+        "unique_features": [
+          "事前入札＋上位3社連絡方式（特許第7614593号）",
+          "あんしん決済（旧MOTA決済）：エスクローサービス",
+          "入札下限額保護ルール：上位3社入選後の恣意的な減額を禁止",
+          "MOTA車買取サポート：商談・価格交渉を代行"
+        ],
+        "target_users": "電話ラッシュを嫌う忙しいビジネスパーソン・デジタルネイティブ層"
+      },
+      "marketing": {
+        "tv_cm": "バカリズム起用。2024年1月〜全国TVCM。2024年11月〜新WebCM「すごくラク」「納得の高値」篇",
+        "seo_rankings": "「車 一括査定」関連KWで複数比較メディアが1位推薦。テクニカルSEO担当を積極採用中",
+        "owned_media": null,
+        "ad_theme": "①電話ラッシュゼロ ②高額査定（競争原理）③個人情報保護。2021→2023年でCV18倍・月数億円規模の広告費運用"
+      },
+      "news": [
+        { "date": "2026-04", "title": "本社移転", "summary": "東京都港区赤坂グリーンクロス22Fへ移転。" },
+        { "date": "2025-10", "title": "「MOTA決済」→「あんしん決済」へ名称変更", "summary": "サービス内容変更なし、名称のみ変更。" },
+        { "date": "2025-05", "title": "エスクローサービス「MOTA決済」開始", "summary": "買取代金の入金確認まで車両引き渡し不可。詐欺・未払いリスク排除。ユーザー無料。" },
+        { "date": "2025-01", "title": "特許第7614593号 取得", "summary": "事前入札方式一括査定サービスの特許。" },
+        { "date": "2024-12", "title": "不動産DX事業開始", "summary": "マンション・戸建・土地の査定比較サービスを新規展開。" },
+        { "date": "2024-11", "title": "新WebCM「すごくラク」「納得の高値」篇 公開", "summary": "バカリズム出演。電話ラッシュの煩わしさを訴求。" },
+        { "date": "2024-01", "title": "バカリズムTVCM 全国放映開始", "summary": "「高額買取の理由」「安心安全の理由」各30秒・15秒の4本。" }
+      ]
+    },
+    "collected_at": "2026-04-25T12:00:00"
+  },
+  {
+    "id": "navikuru",
+    "name": "ナビクル（株式会社エイチームライフデザイン）",
+    "url": "https://www.navikuru.jp",
+    "priority": "high",
+    "summary": "ナビクルは、株式会社エイチームライフデザイン（東証プライム・エイチームHD傘下）が運営する中古車買取一括査定サービス。2007年開始・累計600万件超の利用実績を持つ。最大10社への一括査定依頼と、申し込み直後の概算買取相場表示が特徴。親会社エイチームHD（3662）は売上239億・営業利益8.5億（FY2025）。",
+    "scores": {
+      "threat_level": 4,
+      "service_completeness": 5,
+      "marketing_strength": 4,
+      "scoring_rationale": "累計600万件・引越し侍との2本柱でメディア事業を安定運営。ただしグループ全体の売上縮小・SEOリスクを経営陣が認識しており、M&A頼みの中期計画には不確実性あり。ナビクル自体は「売上・利益ともに好調」で一括査定市場での牙城は維持している。"
+    },
+    "details": {
+      "service": {
+        "overview": "一度のWeb入力で複数の中古車買取業者に査定を依頼し、査定額を比較して最高額で売却できる一括査定サービス。",
+        "flow_steps": [
+          "サイトから車の情報とお客様情報を入力して申し込み（約47秒）",
+          "申し込み直後にWeb上で車の概算買取相場を確認",
+          "自動マッチングされた最大10社から電話連絡が入り査定日時を相談",
+          "都合の良い時間・場所で実車査定をしてもらう",
+          "複数業者の査定額を比較し、最も高い業者と契約"
+        ],
+        "partners": "提携業者数は約65社以上",
+        "coverage_area": "全国対応",
+        "speed": "入力47秒、最短当日に出張査定可能",
+        "assessment_types": ["出張査定", "店舗持ち込み査定"]
+      },
+      "business_model": {
+        "revenue_type": "成果報酬",
+        "user_cost": "申し込みから成約まで利用料完全無料",
+        "dealer_fee_details": "非公開（業者向け問い合わせフォームからの個別見積もり）。業界トップシェアの実績を持ち情報の質に特化したプランを用意",
+        "dealer_info_flow": "ユーザーが申し込みを完了した直後に、マッチングされた対象業者へ顧客情報・車両情報が一斉に開示される"
+      },
+      "differentiation": {
+        "lp_headline": "中古車を最高額で売却できる業者を探す",
+        "lp_catchcopy": "カンタン47秒入力！愛車の最新買取相場がすぐわかる",
+        "unique_features": [
+          "申し込み直後の買取相場表示機能（過去データから概算価格を即座に提示）",
+          "一括キャンセル機能（サイト上から査定依頼の無料キャンセル可能）",
+          "ナビクルアシスト（査定日程調整代行サービス）"
+        ],
+        "target_users": "「車を売るなら高く売りたい」「査定額をじっくり比較したい」と考えているユーザー"
+      },
+      "marketing": {
+        "tv_cm": "過去にラジオCM・ローカル/全国枠TVCM放映実績あり。2024年8月「安全太郎」が話すTVCMを放映",
+        "seo_rankings": "「車 一括査定」の実測検索結果で2位。Googleコアアルゴリズムアップデートによる流入減少が課題（FY2025決算で経営陣が言及）",
+        "owned_media": "ナビクル クルマの知識・買取相場（自社オウンドメディア）",
+        "ad_theme": "「相場がすぐわかる」「複数社比較で高く売れる」「利用シェアトップクラスの安心感」。2025年10月からブランドタグライン「一括査定は、愛車への愛だ。」を使用"
+      },
+      "ir_analysis": {
+        "overview": "エイチームHD（3662）は東証プライム上場。売上はFY2018の377億から2024/25年の239億へ約37%縮小。ゲーム事業の不振が主因で2022年は営業赤字に転落したが、2023年以降は回復基調。",
+        "market_badge": "TSE Prime（3662）",
+        "parent": "エイチームHD",
+        "revenue_trend": [
+          { "period": "FY2021/07", "revenue_bn": 31.3, "op_profit_bn": 0.7 },
+          { "period": "FY2022/07", "revenue_bn": 31.8, "op_profit_bn": -0.3 },
+          { "period": "FY2023/07", "revenue_bn": 27.6, "op_profit_bn": 0.5 },
+          { "period": "FY2024/07", "revenue_bn": 23.9, "op_profit_bn": 0.6 },
+          { "period": "FY2025/07", "revenue_bn": 23.9, "op_profit_bn": 0.8 }
+        ],
+        "midterm_plan_fy2025_2028": {
+          "revenue_target_bn": 34.0,
+          "revenue_cagr_pct": 10,
+          "op_profit_target_bn": 2.0,
+          "op_profit_cagr_pct": 38,
+          "ebitda_target_bn": 4.0,
+          "ma_investment_target": "FY2028までに10億円以上",
+          "shareholder_return": "平均総還元性向100%・累計40〜50億円"
+        },
+        "stability_assessment": {
+          "strengths": [
+            "東証プライム上場・安定した情報開示・IR体制",
+            "メディア・ソリューション事業は売上175億・利益率7.6%と安定した収益基盤",
+            "ナビクル（車）は「売上・利益ともに好調」と経営陣がコメント（FY2025決算）",
+            "引越し侍は「利益好調」"
+          ],
+          "risks": [
+            "グループ全体の売上が2018年ピーク比37%縮小・低成長が継続している",
+            "Googleコアアップデートによる SEOトラフィック減少リスクを経営陣が明言",
+            "のれん償却額の急増（前年比+439.5%）と減損損失（2.27億）が発生",
+            "M&A戦略の実行力と成果が中期計画達成の鍵だが、実績は現時点で限定的",
+            "エンタメ事業（スマホゲーム）は縮小傾向が続き負債感がある"
+          ],
+          "growth_outlook": "中期計画ではFY2028に売上340億（CAGR10%）・営業利益20億（CAGR38%）を掲げるが、FY2025時点の239億から34%増が必要。M&A次第の面が大きく不確実性が高い。ナビクル自体は一括査定市場での安定ポジションを維持。"
+        }
+      },
+      "news": [
+        { "date": "2025-10", "title": "新ブランドタグライン「一括査定は、愛車への愛だ。」を発表", "summary": "サービス開始18年目・累計540万人突破に合わせ、「単なる査定価格の比較を超えた、クルマとオーナーの関係に寄りそう」をテーマにした新タグラインを制定。" },
+        { "date": "2025-06", "title": "利用規約を改定（減額交渉禁止・キャンセル料禁止）", "summary": "中古車売却トラブルの急増（国民生活センターへの相談2021年度1,519件）に対応。売買契約後の減額交渉・キャンセル料請求を禁止し、違反業者には配信停止ペナルティを導入。" },
+        { "date": "2025-06", "title": "YouTubeライブゲーム「クルモン」リリース", "summary": "チャット投稿でクルマモンスターが進化するインタラクティブゲームを展開。若年層への認知拡大を狙ったコンテンツマーケティング施策。" },
+        { "date": "2024-11", "title": "ブランドロゴリニューアル・公式キャラクター「なびくるみ」誕生", "summary": "17年目を迎えリブランディングを実施。「頼もしさ・ポジティブさ・親しみやすさ」を表現した新デザインと公式キャラクターを展開。" },
+        { "date": "2024-09", "title": "エイチームHDが中期経営計画（FY2025-FY2028）を策定", "summary": "FY2028に売上340億・営業利益20億を目指す。「売上向上支援カンパニー」への変革とM&A10億円以上投資を掲げる。" },
+        { "date": "2024-08", "title": "工事現場の安全太郎が話すTVCMを全国放映開始", "summary": "インパクトのある演出で一括査定の認知を拡大。" }
+      ]
+    },
+    "collected_at": "2026-04-26T14:00:00+09:00"
+  }
+];
+
+// ===== Utilities =====
+const $  = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const isEmpty = v => v == null || v === '' || (Array.isArray(v) && v.length === 0);
+const dash = '<span class="empty-cell">—</span>';
+
+const PRIORITY_ORDER = { self: 0, high: 1, medium: 2, low: 3 };
+const sortedCompanies = () => COMPANIES_DATA.slice().sort((a, b) =>
+  (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99));
+
+const shortName = (c) => c.name.replace(/（.*?）/, '');
+const priorityClass = (p) => ({ self:'self', high:'high', medium:'medium', low:'low' })[p] || 'low';
+const priorityLabel = (p) => ({ self:'自社', high:'HIGH', medium:'MED', low:'LOW' })[p] || String(p||'').toUpperCase();
+
+function highlightSummary(text) {
+  if (isEmpty(text)) return '—';
+  let s = escapeHtml(text);
+  s = s.replace(/(\d[\d,\.]*\s*(?:人|社|%|％|円|億|万|倍|位|年|月|時間|秒|時|個|件))/g, '<mark>$1</mark>');
+  s = s.replace(/(特許第[\d]+号)/g, '<mark>$1</mark>');
+  s = s.replace(/「([^」]+)」/g, '<mark>「$1」</mark>');
+  return s;
+}
+
+function truncate(s, n) {
+  if (!s) return '';
+  s = String(s);
+  return s.length > n ? s.substring(0, n) + '…' : s;
+}
+
+// ============ 01. Scores ============
+const SCORE_ROWS = [
+  { key: 'threat_level',         label: '脅威度',         unit: '/5', accent: 'var(--c-biz)' },
+  { key: 'service_completeness', label: 'サービス完成度', unit: '/5', accent: 'var(--c-service)' },
+  { key: 'marketing_strength',   label: 'マーケ強度',     unit: '/5', accent: 'var(--c-mkt)' },
+];
+
+function scoreColor(n) {
+  if (n === 5) return 'var(--c-diff)';
+  if (n === 4) return '#16a34a';
+  if (n === 3) return '#ca8a04';
+  if (n === 2) return 'var(--c-biz)';
+  if (n === 1) return '#991b1b';
+  return 'var(--ink-4)';
+}
+
+function buildScoresSection(companies) {
+  const cs = sortedCompanies();
+  const headers = cs.map(c => {
+    const cls = c.priority === 'self' ? 'is-self' : '';
+    return `<th class="${cls}">${escapeHtml(shortName(c))}<span class="ticker">${priorityLabel(c.priority)}</span></th>`;
+  }).join('');
+
+  const rows = SCORE_ROWS.map(row => {
+    const cells = cs.map(c => {
+      const v = c.scores?.[row.key];
+      if (v == null || v === 0) {
+        return `<td class="score-cell"><span class="score-empty">—</span></td>`;
+      }
+      const color = scoreColor(v);
+      const pct = (v / 5) * 100;
+      return `<td class="score-cell">
+        <span class="score-num" style="color:${color}">${v}</span>
+        <div class="score-bar"><div class="score-bar-fill" style="width:${pct}%; background:${color}"></div></div>
+      </td>`;
+    }).join('');
+    return `<tr>
+      <td class="row-label">
+        <span class="label-dot" style="--accent:${row.accent}"></span>${row.label}
+        <span class="row-unit">${row.unit}</span>
+      </td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  const rationales = cs.map(c => {
+    const r = c.scores?.scoring_rationale;
+    if (isEmpty(r)) return '';
+    const cls = priorityClass(c.priority);
+    return `<details class="score-rationale">
+      <summary>
+        ${escapeHtml(shortName(c))}
+        <span class="summary-prio ${cls}">${priorityLabel(c.priority)}</span>
+      </summary>
+      <div class="rationale-body">${highlightSummary(r)}</div>
+    </details>`;
+  }).join('');
+
+  return `
+    <div class="cs-header">
+      <span class="cs-eyebrow"><span class="accent-bar"></span><span class="num">01</span> SCORES</span>
+      <h2 class="cs-title">スコア比較</h2>
+      <p class="cs-desc">脅威度・サービス完成度・マーケ強度の3軸で全社を横並び評価。各社の評価コメントは下のアコーディオンから確認できる。</p>
+    </div>
+    <div class="score-table-wrap">
+      <table class="score-table">
+        <thead><tr><th></th>${headers}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="rationale-list">${rationales}</div>
+  `;
+}
+
+// ============ 02. Service Flow ============
+function buildServiceSection(companies) {
+  const cs = sortedCompanies();
+  const cards = cs.map(c => {
+    const sv = c.details?.service || {};
+    const partnersNum = (sv.partners || '').match(/([\d,]+)\s*社/);
+    const partnersBig = partnersNum ? partnersNum[1] : null;
+    const stepCount = (sv.flow_steps || []).length;
+    const visibleSteps = (sv.flow_steps || []).slice(0, 5);
+    const moreCount = stepCount - visibleSteps.length;
+
+    return `<div class="service-card">
+      <div class="card-head">
+        <span class="card-name">${escapeHtml(shortName(c))}</span>
+        <span class="card-prio ${priorityClass(c.priority)}">${priorityLabel(c.priority)}</span>
+      </div>
+      <div class="service-meta">
+        <div class="meta-cell">
+          <span class="meta-label">ステップ数</span>
+          <span class="meta-value big">${stepCount || '—'}<span class="unit">step</span></span>
+        </div>
+        <div class="meta-cell">
+          <span class="meta-label">提携業者</span>
+          ${partnersBig
+            ? `<span class="meta-value big">${partnersBig}<span class="unit">社+</span></span>`
+            : `<span class="meta-value">${escapeHtml(sv.partners || '—')}</span>`}
+        </div>
+        <div class="meta-cell">
+          <span class="meta-label">スピード</span>
+          <span class="meta-value">${isEmpty(sv.speed) ? '—' : `<mark>${escapeHtml(sv.speed)}</mark>`}</span>
+        </div>
+        <div class="meta-cell">
+          <span class="meta-label">対応エリア</span>
+          <span class="meta-value">${escapeHtml(sv.coverage_area || '—')}</span>
+        </div>
+      </div>
+      <div class="service-overview">${highlightSummary(sv.overview)}</div>
+      <div>
+        <div class="section-subtitle">フロー</div>
+        <ul class="flow-steps">
+          ${visibleSteps.map((step, i) => `
+            <li class="flow-step"><span class="flow-num">${String(i+1).padStart(2,'0')}</span><span>${escapeHtml(step.replace(/^\d+\.\s*/, ''))}</span></li>
+          `).join('')}
+        </ul>
+        ${moreCount > 0 ? `<div class="flow-more">+${moreCount} more</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="cs-header">
+      <span class="cs-eyebrow"><span class="accent-bar"></span><span class="num">02</span> SERVICE FLOW</span>
+      <h2 class="cs-title">サービスフロー比較</h2>
+      <p class="cs-desc">査定の仕組み・ステップ数・スピード・業者数を全社横並びで比較。フローの設計思想の違いを確認する。</p>
+    </div>
+    <div class="card-grid">${cards}</div>
+  `;
+}
+
+// ============ 03. Business Model ============
+function bizBadgeColor(type) {
+  if (!type) return 'var(--ink-3)';
+  if (/成果報酬/.test(type)) return 'var(--c-diff)';
+  if (/広告|CPA/.test(type)) return 'var(--c-mkt)';
+  if (/SaaS|月額/.test(type)) return 'var(--c-service)';
+  return 'var(--ink-3)';
+}
+
+function buildBizSection(companies) {
+  const cs = sortedCompanies();
+  const rows = cs.map(c => {
+    const bm = c.details?.business_model || {};
+    const color = bizBadgeColor(bm.revenue_type);
+    return `<tr>
+      <td>
+        <div class="biz-co">
+          ${escapeHtml(shortName(c))}
+          <span class="card-prio ${priorityClass(c.priority)}">${priorityLabel(c.priority)}</span>
+        </div>
+      </td>
+      <td>${bm.revenue_type
+        ? `<span class="biz-badge" style="color:${color}">${escapeHtml(bm.revenue_type)}</span>`
+        : dash}</td>
+      <td>${highlightSummary(bm.user_cost)}</td>
+      <td>${highlightSummary(bm.dealer_fee_details)}</td>
+      <td>${highlightSummary(bm.dealer_info_flow)}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="cs-header">
+      <span class="cs-eyebrow"><span class="accent-bar"></span><span class="num">03</span> BUSINESS MODEL</span>
+      <h2 class="cs-title">ビジネスモデル比較</h2>
+      <p class="cs-desc">収益タイプ・ユーザー費用・業者側コスト・情報フローを横並びで比較。マネタイズ構造の違いを把握する。</p>
+    </div>
+    <div class="biz-table-wrap">
+      <table class="biz-table">
+        <thead>
+          <tr>
+            <th style="width:160px;">企業</th>
+            <th style="width:130px;">収益タイプ</th>
+            <th>ユーザー費用</th>
+            <th>業者側コスト</th>
+            <th>情報フロー</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+// ============ 04. Differentiation ============
+function buildDiffSection(companies) {
+  const cs = sortedCompanies();
+  const cards = cs.map(c => {
+    const d = c.details?.differentiation || {};
+    const features = (d.unique_features || []).slice(0, 6);
+    const chips = features.map(f => {
+      const short = f.split(/[。：:（]/)[0];
+      const label = truncate(short, 22);
+      return `<span class="feature-chip" title="${escapeHtml(f)}">${escapeHtml(label)}</span>`;
+    }).join('');
+
+    const quote = d.lp_catchcopy || d.lp_headline;
+
+    return `<div class="diff-card">
+      <div class="card-head">
+        <span class="card-name">${escapeHtml(shortName(c))}</span>
+        <span class="card-prio ${priorityClass(c.priority)}">${priorityLabel(c.priority)}</span>
+      </div>
+      ${quote ? `<div class="diff-quote">"${escapeHtml(quote)}"</div>` : ''}
+      <div>
+        <div class="section-subtitle" style="margin-bottom:8px;">差別化要因</div>
+        <div class="feature-chips">${chips || dash}</div>
+      </div>
+      <div class="diff-target">
+        <div class="meta-label">ターゲット</div>
+        ${highlightSummary(d.target_users)}
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="cs-header">
+      <span class="cs-eyebrow"><span class="accent-bar"></span><span class="num">04</span> DIFFERENTIATION</span>
+      <h2 class="cs-title">差別化要因比較</h2>
+      <p class="cs-desc">各社の <code>unique_features</code> を横並びでチップ化し、どの会社がどの強みで戦っているかを把握する。</p>
+    </div>
+    <div class="card-grid">${cards}</div>
+  `;
+}
+
+// ============ 05. Marketing ============
+function buildMarketingSection(companies) {
+  const cs = sortedCompanies();
+
+  // Top: pill row across all companies
+  const pillCells = cs.map(c => {
+    const m = c.details?.marketing || {};
+    const cmOn   = !isEmpty(m.tv_cm);
+    const seoOn  = !isEmpty(m.seo_rankings);
+    const owMOn  = !isEmpty(m.owned_media);
+    return `<div class="mkt-overview-cell">
+      <div class="mkt-co-name">${escapeHtml(shortName(c))}</div>
+      <div class="mkt-pills">
+        <span class="mkt-pill ${cmOn  ? 'on' : 'off'}">${cmOn  ? 'TV CM ✓' : 'TV CM —'}</span>
+        <span class="mkt-pill ${seoOn ? 'on' : 'off'}">${seoOn ? 'SEO ✓'   : 'SEO —'}</span>
+        <span class="mkt-pill ${owMOn ? 'on' : 'off'}">${owMOn ? 'オウンド ✓' : 'オウンド —'}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Detail cards
+  const cards = cs.map(c => {
+    const m = c.details?.marketing || {};
+    return `<div class="mkt-card">
+      <div class="card-head">
+        <span class="card-name">${escapeHtml(shortName(c))}</span>
+        <span class="card-prio ${priorityClass(c.priority)}">${priorityLabel(c.priority)}</span>
+      </div>
+      <div class="mkt-row">
+        <span class="mkt-row-label">TV CM</span>
+        <span class="mkt-row-text">${highlightSummary(truncate(m.tv_cm, 140))}</span>
+      </div>
+      <div class="mkt-row">
+        <span class="mkt-row-label">広告テーマ</span>
+        <span class="mkt-row-text">${highlightSummary(truncate(m.ad_theme, 140))}</span>
+      </div>
+      <div class="mkt-row">
+        <span class="mkt-row-label">SEO</span>
+        <span class="mkt-row-text">${highlightSummary(truncate(m.seo_rankings, 130))}</span>
+      </div>
+      <div class="mkt-row">
+        <span class="mkt-row-label">オウンドメディア</span>
+        <span class="mkt-row-text">${isEmpty(m.owned_media) ? dash : escapeHtml(m.owned_media)}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="cs-header">
+      <span class="cs-eyebrow"><span class="accent-bar"></span><span class="num">05</span> MARKETING</span>
+      <h2 class="cs-title">マーケティング戦略比較</h2>
+      <p class="cs-desc">TV CM・SEO・オウンドメディアの有無、広告メッセージのテーマを全社横断で比較する。</p>
+    </div>
+    <div class="mkt-overview-row">${pillCells}</div>
+    <div class="card-grid">${cards}</div>
+  `;
+}
+
+// ============ 06. IR / Finance ============
+function irTrendBadge(trend) {
+  if (!Array.isArray(trend) || trend.length < 2) return '<span class="ir-na">—</span>';
+  const last = trend[trend.length - 1]?.op_profit_bn ?? 0;
+  const prev = trend[trend.length - 2]?.op_profit_bn ?? 0;
+  if (last > prev) return '<span class="ir-trend-badge up">↑ 改善</span>';
+  if (last < prev) return '<span class="ir-trend-badge down">↓ 悪化</span>';
+  return '<span class="ir-trend-badge flat">→ 横ばい</span>';
+}
+
+function buildIrSection(companies) {
+  const cs = sortedCompanies();
+  const withIR = cs.filter(c => c.details?.ir_analysis);
+  const withoutIR = cs.filter(c => !c.details?.ir_analysis);
+
+  // Summary table
+  const summaryRows = cs.map(c => {
+    const ir = c.details?.ir_analysis;
+    if (!ir) {
+      return `<tr>
+        <td class="ir-summary-co">${escapeHtml(shortName(c))}</td>
+        <td><span class="ir-na">非上場</span></td>
+        <td><span class="ir-na">—</span></td>
+        <td><span class="ir-na">—</span></td>
+        <td><span class="ir-na">—</span></td>
+        <td><span class="ir-na">—</span></td>
+      </tr>`;
+    }
+    const trend = ir.revenue_trend || [];
+    const latest = trend[trend.length - 1];
+    const mp = ir.midterm_plan_fy2025_2028 || {};
+    return `<tr>
+      <td class="ir-summary-co">${escapeHtml(shortName(c))}</td>
+      <td>${ir.market_badge ? `<span class="ir-market-badge">${escapeHtml(ir.market_badge)}</span>` : dash}</td>
+      <td>${escapeHtml(ir.parent || '—')}</td>
+      <td>${latest ? `<strong style="color:var(--ink);font-variant-numeric:tabular-nums;">${latest.revenue_bn}億</strong> <span style="color:var(--ink-4);font-size:11px;">(${escapeHtml(latest.period)})</span>` : dash}</td>
+      <td>${irTrendBadge(trend)}</td>
+      <td>${mp.revenue_target_bn ? `<strong style="color:var(--ink);font-variant-numeric:tabular-nums;">${mp.revenue_target_bn}億</strong> <span style="color:var(--ink-4);font-size:11px;">FY28</span>` : dash}</td>
+    </tr>`;
+  }).join('');
+
+  // Detail cards
+  const detailCards = withIR.map(c => {
+    const ir = c.details.ir_analysis;
+    const trend = ir.revenue_trend || [];
+    const mp = ir.midterm_plan_fy2025_2028 || {};
+    const sa = ir.stability_assessment || {};
+    const maxRev = Math.max(...trend.map(t => t.revenue_bn || 0), 1);
+
+    const miniRows = trend.map(t => {
+      const pct = Math.round(((t.revenue_bn || 0) / maxRev) * 100);
+      return `<div class="ir-mini-row">
+        <span class="ir-mini-period">${escapeHtml(t.period)}</span>
+        <div class="ir-mini-bar-wrap"><div class="ir-mini-bar" style="width:${pct}%"></div></div>
+        <span class="ir-mini-val">${t.revenue_bn}<span class="unit">億</span></span>
+      </div>`;
+    }).join('');
+
+    const planRows = [
+      ['売上目標',     mp.revenue_target_bn   != null ? `${mp.revenue_target_bn}億円`   : null, false],
+      ['売上CAGR',     mp.revenue_cagr_pct    != null ? `+${mp.revenue_cagr_pct}%/年`  : null, false],
+      ['営業利益目標', mp.op_profit_target_bn != null ? `${mp.op_profit_target_bn}億円`: null, false],
+      ['EBITDA目標',   mp.ebitda_target_bn    != null ? `${mp.ebitda_target_bn}億円`   : null, false],
+      ['M&A投資',      mp.ma_investment_target ? mp.ma_investment_target : null, true],
+      ['株主還元',     mp.shareholder_return ? mp.shareholder_return : null, true],
+    ].filter(r => r[1] != null)
+     .map(([l,v,wide]) => `<div class="ir-plan-row${wide ? ' wide' : ''}">
+       <span class="ir-plan-label">${escapeHtml(l)}</span>
+       <span class="ir-plan-value">${escapeHtml(v)}</span>
+     </div>`).join('');
+
+    const strengths = (sa.strengths || []).map(s =>
+      `<div class="ir-chip pos"><span class="ir-chip-text">${escapeHtml(s)}</span></div>`).join('');
+    const risks = (sa.risks || []).map(r =>
+      `<div class="ir-chip neg"><span class="ir-chip-text">${escapeHtml(r)}</span></div>`).join('');
+
+    return `<div class="ir-detail-card">
+      <div class="ir-card-head">
+        <span class="ir-card-name">${escapeHtml(shortName(c))}</span>
+        ${ir.market_badge ? `<span class="ir-market-badge">${escapeHtml(ir.market_badge)}</span>` : ''}
+        ${irTrendBadge(trend)}
+      </div>
+      <p class="ir-card-overview">${highlightSummary(ir.overview)}</p>
+      <div class="ir-card-body">
+        <div class="ir-mini-chart">
+          <div class="ir-block-title">売上推移</div>
+          ${miniRows || dash}
+        </div>
+        <div>
+          <div class="ir-block-title">中期計画目標</div>
+          <div class="ir-plan-kv">${planRows || dash}</div>
+        </div>
+      </div>
+      <div class="ir-assess">
+        <div>
+          <div class="ir-assess-col-title pos">強み・安定要因</div>
+          <div class="ir-chips">${strengths || dash}</div>
+        </div>
+        <div>
+          <div class="ir-assess-col-title neg">リスク要因</div>
+          <div class="ir-chips">${risks || dash}</div>
+        </div>
+      </div>
+      ${sa.growth_outlook ? `<div class="ir-outlook"><span class="ir-outlook-label">成長見通し</span>${escapeHtml(sa.growth_outlook)}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  const placeholders = withoutIR.map(c =>
+    `<span class="ir-placeholder-item">${escapeHtml(shortName(c))} — 非上場 / IR データなし</span>`
+  ).join('');
+
+  return `
+    <div class="cs-header">
+      <span class="cs-eyebrow"><span class="accent-bar"></span><span class="num">06</span> IR &amp; FINANCE</span>
+      <h2 class="cs-title">IR・財務分析比較</h2>
+      <p class="cs-desc">上場企業・IR開示データを持つ会社の財務安定性・成長性を横断比較。データのない会社は下段にプレースホルダーで示す。</p>
+    </div>
+    <div class="ir-summary-wrap">
+      <table class="ir-summary-table">
+        <thead>
+          <tr>
+            <th>企業</th>
+            <th>上場区分</th>
+            <th>親会社</th>
+            <th>直近売上</th>
+            <th>営業利益トレンド</th>
+            <th>FY28 売上目標</th>
+          </tr>
+        </thead>
+        <tbody>${summaryRows}</tbody>
+      </table>
+    </div>
+    ${detailCards ? `<div class="ir-detail-grid">${detailCards}</div>` : ''}
+    ${placeholders ? `<div class="ir-placeholder-wrap">
+      <div class="ir-placeholder-title">IR データなしの会社</div>
+      <div class="ir-placeholder-list">${placeholders}</div>
+    </div>` : ''}
+  `;
+}
+
+// ============ 07. News timeline ============
+// Stable per-company palette. Cycles if more companies than colors.
+const NEWS_PALETTE = [
+  { color: '#c2410c', soft: 'rgba(194,65,12,0.08)',  border: 'rgba(194,65,12,0.25)'  }, // burnt orange
+  { color: '#0369a1', soft: 'rgba(3,105,161,0.08)',  border: 'rgba(3,105,161,0.25)'  }, // deep sky
+  { color: '#047857', soft: 'rgba(4,120,87,0.08)',   border: 'rgba(4,120,87,0.25)'   }, // emerald
+  { color: '#6d28d9', soft: 'rgba(109,40,217,0.08)', border: 'rgba(109,40,217,0.25)' }, // violet
+  { color: '#b91c1c', soft: 'rgba(185,28,28,0.08)',  border: 'rgba(185,28,28,0.25)'  }, // coral red
+  { color: '#4d7c0f', soft: 'rgba(77,124,15,0.08)',  border: 'rgba(77,124,15,0.25)'  }, // lime
+  { color: '#b45309', soft: 'rgba(180,83,9,0.08)',   border: 'rgba(180,83,9,0.25)'   }, // amber
+  { color: '#0c4a6e', soft: 'rgba(12,74,110,0.08)',  border: 'rgba(12,74,110,0.25)'  }, // navy
+];
+
+function buildCompanyColorMap() {
+  // Self always gets the brand orange. Others cycle through the palette in priority order.
+  const map = {};
+  const cs = sortedCompanies();
+  let idx = 0;
+  cs.forEach(c => {
+    if (c.priority === 'self') {
+      map[c.id] = NEWS_PALETTE[0];
+    } else {
+      idx += 1;
+      map[c.id] = NEWS_PALETTE[idx % NEWS_PALETTE.length];
+    }
+  });
+  return map;
+}
+
+function formatNewsDate(d) {
+  const m = String(d || '').match(/^(\d{4})-(\d{2})/);
+  if (!m) return escapeHtml(d || '');
+  return `${m[1]}年${parseInt(m[2],10)}月`;
+}
+
+function buildNewsSection(companies) {
+  const colorMap = buildCompanyColorMap();
+  const items = [];
+  const counts = {};
+  COMPANIES_DATA.forEach(c => {
+    const news = c.details?.news || [];
+    counts[c.id] = news.length;
+    news.forEach(n => items.push({
+      date: n.date || '',
+      title: n.title || '',
+      summary: n.summary || '',
+      co: c
+    }));
+  });
+  items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+
+  const legend = sortedCompanies().map(c => {
+    const p = colorMap[c.id];
+    return `<span class="news-legend-item" style="--co:${p.color}">
+      <span class="news-legend-swatch"></span>${escapeHtml(shortName(c))}
+      <span class="news-legend-count">${counts[c.id] || 0}件</span>
+    </span>`;
+  }).join('');
+
+  const rows = items.map(it => {
+    const c = it.co;
+    const p = colorMap[c.id];
+    const styleVars = `--co:${p.color}; --co-soft:${p.soft}; --co-border:${p.border};`;
+    return `<div class="news-item" style="${styleVars}">
+      <div class="news-date">${formatNewsDate(it.date)}</div>
+      <div class="news-rail"><span class="news-dot"></span></div>
+      <div class="news-content">
+        <span class="news-co-badge">${escapeHtml(shortName(c))}</span>
+        <div class="news-title">${escapeHtml(it.title)}</div>
+        <div class="news-summary">${highlightSummary(truncate(it.summary, 180))}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="cs-header">
+      <span class="cs-eyebrow"><span class="accent-bar"></span><span class="num">07</span> NEWS</span>
+      <h2 class="cs-title">ニュース横断タイムライン</h2>
+      <p class="cs-desc">全社の最新ニュースを時系列で並べて、業界全体のトレンドを把握する。${items.length}件を新しい順に表示。</p>
+    </div>
+    <div class="news-legend">
+      <span class="news-legend-label">凡例</span>
+      ${legend}
+    </div>
+    <div class="news-timeline">${rows || dash}</div>
+  `;
+}
+
+// ============ Init ============
+function render() {
+  $('#topCount').textContent = `${COMPANIES_DATA.length}社のデータ`;
+  $('#topDate').textContent = TODAY;
+  $('#footerDate').textContent = TODAY;
+
+  $('#s-scores').innerHTML    = buildScoresSection(COMPANIES_DATA);
+  $('#s-service').innerHTML   = buildServiceSection(COMPANIES_DATA);
+  $('#s-biz').innerHTML       = buildBizSection(COMPANIES_DATA);
+  $('#s-diff').innerHTML      = buildDiffSection(COMPANIES_DATA);
+  $('#s-marketing').innerHTML = buildMarketingSection(COMPANIES_DATA);
+  $('#s-ir').innerHTML        = buildIrSection(COMPANIES_DATA);
+  $('#s-news').innerHTML      = buildNewsSection(COMPANIES_DATA);
+
+  // Sidebar nav active-state observer
+  const SECTION_ACCENTS = {
+    's-scores':    'var(--c-scale)',
+    's-service':   'var(--c-service)',
+    's-biz':       'var(--c-biz)',
+    's-diff':      'var(--c-diff)',
+    's-marketing': 'var(--c-mkt)',
+    's-ir':        'var(--c-ir)',
+    's-news':      'var(--c-news)',
+  };
+  const navItems = $$('.nav-item');
+  const sections = $$('.compare-section');
+
+  function setActive(id) {
+    navItems.forEach(n => {
+      const isActive = n.dataset.target === id;
+      n.classList.toggle('active', isActive);
+      const dot = n.querySelector('.nav-dot');
+      if (dot) dot.style.background = isActive ? SECTION_ACCENTS[id] : '';
+    });
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    // Pick the most-visible section
+    const visible = entries
+      .filter(e => e.isIntersecting)
+      .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+    if (visible.length) setActive(visible[0].target.id);
+  }, { rootMargin: '-15% 0px -55% 0px', threshold: [0, 0.25, 0.5, 0.75, 1] });
+
+  sections.forEach(s => observer.observe(s));
+
+  // Smooth scroll for nav anchors
+  navItems.forEach(n => {
+    n.addEventListener('click', (e) => {
+      const target = document.getElementById(n.dataset.target);
+      if (target) {
+        e.preventDefault();
+        const top = target.getBoundingClientRect().top + window.pageYOffset - 16;
+        window.scrollTo({ top, behavior: 'smooth' });
+        setActive(n.dataset.target);
+      }
+    });
+  });
+
+  setActive('s-scores');
+}
+
+render();
+</script>
+</body>
+</html>
