@@ -1,0 +1,91 @@
+{
+  "industries": {
+    "car_appraisal": "車買取一括査定サービス"
+  },
+  "companies": [
+    {
+      "id": "mota",
+      "name": "MOTA（株式会社MOTA）",
+      "url": "https://mota.jp",
+      "parent": "株式会社MOTA",
+      "listed": false,
+      "priority": "self",
+      "tags": ["car_appraisal"],
+      "patents": ["特許第7614593号"],
+      "note": "自社サービス（ベースライン確認用）"
+    },
+    {
+      "id": "navicle",
+      "name": "ナビクル（株式会社ビッグウィング）",
+      "url": "https://navikuru.jp",
+      "parent": "株式会社ビッグウィング",
+      "listed": false,
+      "priority": "high",
+      "tags": ["car_appraisal"],
+      "note": "直接競合・主要ライバル"
+    },
+    {
+      "id": "mycarscout",
+      "name": "マイカースカウト（LINEヤフー株式会社）",
+      "url": "https://carscout.yahoo.co.jp",
+      "parent": "LINEヤフー株式会社",
+      "listed": true,
+      "ticker": "4689",
+      "priority": "high",
+      "tags": ["car_appraisal"],
+      "note": "大手プラットフォーマー参入"
+    },
+    {
+      "id": "carsensor_appraisal",
+      "name": "カーセンサー一括査定（株式会社リクルート）",
+      "url": "https://www.carsensor.net/satei/",
+      "parent": "株式会社リクルート",
+      "listed": true,
+      "ticker": "6098",
+      "priority": "high",
+      "tags": ["car_appraisal"],
+      "note": "メディア強み・広告費大"
+    },
+    {
+      "id": "goonet_kaitori",
+      "name": "グーネット買取（株式会社プライスジャパン）",
+      "url": "https://www.goo-net.com/kaitori/",
+      "parent": "株式会社プライスジャパン",
+      "listed": false,
+      "priority": "medium",
+      "tags": ["car_appraisal"],
+      "note": "中古車メディア最大手系列"
+    },
+    {
+      "id": "zubatto",
+      "name": "ズバット車買取比較（株式会社ウェブクルー）",
+      "url": "https://car.zubat.jp",
+      "parent": "株式会社ウェブクルー",
+      "listed": false,
+      "priority": "medium",
+      "tags": ["car_appraisal"],
+      "note": "比較サイト型・SEO特化"
+    },
+    {
+      "id": "rakuten_car",
+      "name": "楽天Car査定（楽天グループ株式会社）",
+      "url": "https://car.rakuten.co.jp/satei/",
+      "parent": "楽天グループ株式会社",
+      "listed": true,
+      "ticker": "4755",
+      "priority": "medium",
+      "tags": ["car_appraisal"],
+      "note": "EC大手参入・ブランド力"
+    },
+    {
+      "id": "ucarpac",
+      "name": "ユーカーパック（株式会社ユーカーパック）",
+      "url": "https://www.ucarpack.com",
+      "parent": "株式会社ユーカーパック",
+      "listed": false,
+      "priority": "low",
+      "tags": ["car_appraisal"],
+      "note": "フリマ型・直接売買（ビジネスモデルが異なる）"
+    }
+  ]
+}
